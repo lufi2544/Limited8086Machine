@@ -12,6 +12,8 @@ enum class enum_opcode_masks : std::uint8_t
 {
 	reg_mem_to_from_reg = 0b11111000,
 	immediate_to_register = 0b11110000,
+	immediate_to_register_mem = 0b11111110,
+	immediate_to_register_mem_w = 0b00000001,
 	immediate_to_register_w = 0b00001000,
 	immediate_to_register_reg = 0b00000111,
 	d = 0b00000010,
@@ -46,13 +48,13 @@ enum class enum_mod : std::uint8_t
 	rm_no_displacement		= 0b11000000  // mod = 11
 };
 
-char RegStrings[2][8][3] =
+char G_RegStrings[2][8][3] =
 {
 	{ {"al"}, {"cl"}, {"dl"}, {"bl"}, {"ah"}, {"ch"}, {"dh"}, {"bh"}}, // W = 0
 	{ {"ax"}, {"cx"}, {"dx"}, {"bx"}, {"sp"}, {"bp"}, {"si"}, {"di"}}  // W = 1
 };
 
-char EffAddressCalcRMTable[8][8] =
+char G_EffAddressCalcRMTable[8][8] =
 {
 	{"bx + si"}, {"bx + di"}, {"bp + si"}, {"bp + di"}, {"si"}, {"di"}, {"bp"}, {"bx"}
 };
@@ -64,24 +66,59 @@ typedef instruction_t* instruction;
 
 struct decoder_8086
 {
+	bool IsDisplacementNegative(instruction_t Instruction)
+	{
+		// As the 8086/88 use the two's complement for representing signed numbers, we have to check the LSF of the data, to determine the sign.
+		return Instruction & 0b10000000;
+	}
+
+	bool IsDisplacementNegative_dw(d_instruction_t D_Instruction)
+	{
+		return D_Instruction & 0b1000000000000000;
+	}
+
+	instruction_t GetNegativeNumber(instruction_t Instruction) const
+	{
+		Instruction = ~Instruction;
+		return Instruction + 1; 
+	}
+
+	d_instruction_t GetNegativeNumber_dw(d_instruction_t D_Instruction) const
+	{
+		D_Instruction = ~D_Instruction;
+		return D_Instruction + 1;
+	}
+
+	
 	// It gives us a buffer with the assembly code decoded.
 	// @param FileBuff is the buffer loaded from the encoded binary. 
-	void Decode(instruction Instruction, std::size_t InstructionIndex, std::size_t& Out_InstructionOffset)
+	void Decode(instruction Instruction, std::size_t InstructionIndex, std::int8_t& Out_InstructionOffset)
 	{
 		if(!Instruction)
 		{
 			return;
 		}
 
+		Out_InstructionOffset = -1;
+
+		
 
 		// Instruction0
-		const char* OpcodeBuffer;
-		const char* EffectiveAddressBuff;
+		const char* OpcodeBuffer = nullptr;
+		const char* EffectiveAddressBuff = nullptr;
 		instruction_t Instruction_0 = Instruction[InstructionIndex];
 		instruction_t Instruction_1 = Instruction[InstructionIndex + 1];
 
-
-
+		if(false)
+		{
+			std::cout << std::bitset<8>(Instruction_0).to_string() << std::endl;
+			std::cout << std::bitset<8>(Instruction_1).to_string() << std::endl;
+			std::cout << std::bitset<8>(Instruction[InstructionIndex + 2]).to_string()<< std::endl;
+			std::cout << std::bitset<8>(Instruction[InstructionIndex + 3]).to_string() << std::endl;
+		}
+		
+		
+		OpcodeBuffer = "mov";
 		if((Instruction_0 & (instruction_t)enum_opcode_masks::reg_mem_to_from_reg) == (instruction_t)enum_opcode::mov_reg_to_reg)
 		{
 			std::size_t W = (std::size_t)(Instruction_0 & (instruction_t)enum_opcode_masks::w);
@@ -91,18 +128,18 @@ struct decoder_8086
 			// Reg
 			const instruction_t Reg = Instruction_1 & (instruction_t)enum_regions_masks::reg_mask;
 			const instruction_t Reg_Raw = Reg >> 3;
-			const char* DecodedReg = RegStrings[W][Reg_Raw];
+			const char* DecodedReg = G_RegStrings[W][Reg_Raw];
 
 			// R/M	
 			const instruction_t RM = Instruction_1 & (instruction_t)enum_regions_masks::rm_mask;
-			const char* DecodedRM = RegStrings[W][RM];
+			const char* DecodedRM = G_RegStrings[W][RM];
 
 			const char* DecodedDestination;
 
 			// TODO: This is not true for the non displacement instructions -> register to memory 
 			DecodedDestination = D ? DecodedReg : DecodedRM;
 
-			OpcodeBuffer = "mov";
+			
 			const instruction_t Mod = Instruction_1 & (instruction_t)enum_regions_masks::mod_mask;
 
 
@@ -120,21 +157,31 @@ struct decoder_8086
 			}
 			else
 			{
-				const char* PartialEffectiveAddressBuff = EffAddressCalcRMTable[RM];
+				const char* PartialEffectiveAddressBuff = G_EffAddressCalcRMTable[RM];
 
 				// DISPLACEMENT CHECK
 
 				if (Mod == (instruction_t)enum_mod::mm_displacement_8_bit)
 				{
-					const d_instruction_t Instruction_2 = Instruction[InstructionIndex + 2];
-					const d_instruction_t Displacement_8bit = Instruction_2;
+					const instruction_t Instruction_2 = Instruction[InstructionIndex + 2];
+					instruction_t Displacement_8bit = Instruction_2;
 
 					
 					if (D) 
 					{
 						if (Displacement_8bit > 0)
 						{
-							std::printf("%s %s, [%s + %i] \n", OpcodeBuffer, DecodedDestination, PartialEffectiveAddressBuff, Displacement_8bit);
+							if(IsDisplacementNegative(Displacement_8bit))
+							{
+								Displacement_8bit = GetNegativeNumber(Displacement_8bit);
+								std::printf("%s %s, [%s - %i] \n", OpcodeBuffer, DecodedDestination, PartialEffectiveAddressBuff, Displacement_8bit);
+							}
+							else
+							{
+								std::printf("%s %s, [%s + %i] \n", OpcodeBuffer, DecodedDestination, PartialEffectiveAddressBuff, Displacement_8bit);
+							}
+
+							
 						}
 						else
 						{
@@ -145,7 +192,15 @@ struct decoder_8086
 					{
 						if (Displacement_8bit > 0)
 						{
-							std::printf("%s [%s + %i], %s \n", OpcodeBuffer, PartialEffectiveAddressBuff, Displacement_8bit, DecodedReg);
+							if(IsDisplacementNegative(Displacement_8bit))
+							{
+								Displacement_8bit = GetNegativeNumber(Displacement_8bit);
+								std::printf("%s [%s - %i], %s \n", OpcodeBuffer, PartialEffectiveAddressBuff, Displacement_8bit, DecodedReg);
+							}
+							else
+							{
+								std::printf("%s [%s + %i], %s \n", OpcodeBuffer, PartialEffectiveAddressBuff, Displacement_8bit, DecodedReg);
+							}
 						}
 						else
 						{
@@ -157,19 +212,35 @@ struct decoder_8086
 				}
 				else if (Mod == (instruction_t)enum_mod::mm_displacement_16_bit)
 				{
-					const d_instruction_t Instruction_2 = Instruction[InstructionIndex + 2];
-					const d_instruction_t Instruction_3 = Instruction[InstructionIndex + 3];
+					const d_instruction_t Instruction_2 = Instruction[InstructionIndex + 2]; // L bits
+					const d_instruction_t Instruction_3 = Instruction[InstructionIndex + 3]; // H bits
 
-					const d_instruction_t Displacement_16bit = (Instruction_3 << 8) | Instruction_2;
-					// TODO depending on the D flag, we have to set the [] as source or destination
+					d_instruction_t Displacement_16bit = (Instruction_3 << 8) | Instruction_2;
+					
 
 					if(D)
 					{
-						std::printf("%s %s, [%s + %i] \n", OpcodeBuffer, DecodedReg, PartialEffectiveAddressBuff, Displacement_16bit);
+						if(IsDisplacementNegative_dw(Displacement_16bit))
+						{
+							Displacement_16bit = GetNegativeNumber_dw(Displacement_16bit);
+							std::printf("%s %s, [%s - %i] \n", OpcodeBuffer, DecodedReg, PartialEffectiveAddressBuff, Displacement_16bit);
+						}
+						else
+						{
+							std::printf("%s %s, [%s + %i] \n", OpcodeBuffer, DecodedReg, PartialEffectiveAddressBuff, Displacement_16bit);
+						}
 					}
 					else
 					{
-						std::printf("%s [%s + %i], %s \n", OpcodeBuffer, PartialEffectiveAddressBuff, Displacement_16bit, DecodedReg);
+						if(IsDisplacementNegative_dw(Displacement_16bit))
+						{
+							Displacement_16bit = GetNegativeNumber_dw(Displacement_16bit);
+							std::printf("%s [%s - %i], %s \n", OpcodeBuffer, PartialEffectiveAddressBuff, Displacement_16bit, DecodedReg);
+						}
+						else
+						{
+							std::printf("%s [%s + %i], %s \n", OpcodeBuffer, PartialEffectiveAddressBuff, Displacement_16bit, DecodedReg);
+						}
 					}
 
 					Out_InstructionOffset = 4;
@@ -217,6 +288,73 @@ struct decoder_8086
 			}
 
 		}
+		else if((Instruction_0 & (instruction_t)enum_opcode_masks::immediate_to_register_mem) == (instruction_t)enum_opcode::mov_immediate_to_reg_mem)
+		{
+			// mov [bx + 2], 12
+			const instruction_t W = Instruction_0 & (instruction_t)(enum_opcode_masks::immediate_to_register_mem_w);
+			const instruction_t Mod = (Instruction_1 & (instruction_t)(enum_regions_masks::mod_mask));
+			const instruction_t R_M = (Instruction_1 & (instruction_t)(enum_regions_masks::rm_mask));
+			char* DecodedEffectiveAddressBuff = G_EffAddressCalcRMTable[R_M];
+			
+			
+			if(Mod == (instruction_t)enum_mod::mm_no_displacement)
+			{
+				const d_instruction_t Data_L = Instruction[InstructionIndex + 2];
+				if(W)
+				{
+					const d_instruction_t Data_H = Instruction[InstructionIndex + 3];
+					const d_instruction_t Data = Data_H << 8 | Data_L;
+					
+					std::printf("%s [%s], word %i \n", OpcodeBuffer, DecodedEffectiveAddressBuff, Data);
+					Out_InstructionOffset = 4; 
+				}
+				else
+				{
+					std::printf("%s [%s], byte %i \n", OpcodeBuffer, DecodedEffectiveAddressBuff, Data_L);
+					Out_InstructionOffset = 3;
+				}
+			}
+			else if(Mod == (instruction_t)enum_mod::mm_displacement_8_bit)
+			{
+				const instruction_t Displacement_8Bit = Instruction[InstructionIndex + 2];
+				const d_instruction_t Data_L = Instruction[InstructionIndex + 3];
+				if(W)
+				{
+					const d_instruction_t Data_H = Instruction[InstructionIndex + 4];
+					const d_instruction_t Data = Data_H << 8 | Data_L;
+					
+					std::printf("%s [%s + %i], word %i \n", OpcodeBuffer, DecodedEffectiveAddressBuff, Displacement_8Bit, Data);
+					Out_InstructionOffset = 5;
+				}
+				else
+				{
+					std::printf("%s [%s + %i], byte %i \n", OpcodeBuffer, DecodedEffectiveAddressBuff, Displacement_8Bit, Data_L);
+					Out_InstructionOffset = 4;
+				}
+			}
+			else if(Mod == (instruction_t)enum_mod::mm_displacement_16_bit)
+			{
+				const d_instruction_t Displacement_16Bit_L = Instruction[InstructionIndex + 2];
+				const d_instruction_t Displacement_16Bit_H = Instruction[InstructionIndex + 3];
+				const d_instruction_t Displacement_16Bit = Displacement_16Bit_H << 8 | Displacement_16Bit_L;
+				
+				const d_instruction_t Data_L = Instruction[InstructionIndex + 4];
+				if(W)
+				{
+					
+					const d_instruction_t Data_H = Instruction[InstructionIndex + 5];
+					const d_instruction_t Data = Data_H << 8 | Data_L;
+					std::printf("%s [%s + %i], word %i \n", OpcodeBuffer, DecodedEffectiveAddressBuff, Displacement_16Bit, Data);
+					Out_InstructionOffset = 6;
+				}
+				else
+				{
+					std::printf("%s [%s + %i], byte %i \n", OpcodeBuffer, DecodedEffectiveAddressBuff, Displacement_16Bit, Data_L);
+					Out_InstructionOffset = 5;
+				}
+			}
+			
+		}
 		else if((Instruction_0 & (instruction_t)enum_opcode_masks::immediate_to_register) == (instruction_t)enum_opcode::mov_immediate_to_reg)
 		{
 			// mov cx, 12
@@ -228,25 +366,24 @@ struct decoder_8086
 			{
 				const d_instruction_t DInstruction_1 = Instruction_1;
 				const d_instruction_t DInstruction_2 = Instruction[InstructionIndex + 2];
-
-				// TODO Watch video for neg numbers
-				std::printf("mov %s, %i \n", RegStrings[W][Reg], (DInstruction_1 | (DInstruction_2 << 8)));
+				
+				std::printf("mov %s, %i \n", G_RegStrings[W][Reg], (DInstruction_1 | (DInstruction_2 << 8)));
 			}
 			else
 			{					
-				std::printf("mov %s, %i \n", RegStrings[W][Reg], Instruction_1);
+				std::printf("mov %s, %i \n", G_RegStrings[W][Reg], Instruction_1);
 			}
 			
 			Out_InstructionOffset = W ? 3 : 2;
 		}
-		else if(Instruction_0 & (instruction_t)enum_opcode::mov_immediate_to_reg)
+
+		if(Out_InstructionOffset == -1)
 		{
-
+			std::cout << "Instruction not implemented!\n";			
 		}
-
-
 	}
 
+	
 };
 
 
@@ -295,8 +432,13 @@ int main ()
 	while(i < FileSize)
 	{
 		// no displacement instruction		decoder_8086 Processor;
-		std::size_t InstructionOffset = 0;
+		std::int8_t InstructionOffset = 0;
 		decoder.Decode(AllInstructions, i, InstructionOffset);
+		if(InstructionOffset < 0)
+		{
+			break;
+		}
+		
 		i += InstructionOffset;
 	}
 
