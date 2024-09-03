@@ -16,8 +16,11 @@ enum class enum_opcode_masks : std::uint8_t
 	immediate_to_register_mem_w = 0b00000001,
 	immediate_to_register_w = 0b00001000,
 	immediate_to_register_reg = 0b00000111,
-	d = 0b00000010,
-	w = 0b00000001
+	add_reg_mem = 0b11111100,
+	add_immediate_to_register_memory = 0b11111100,
+	add_immediate_to_accumulator = 0b11111110,
+	d_1 = 0b00000010,
+	w_0 = 0b00000001
 };
 
 enum class enum_opcode : std::uint8_t
@@ -25,6 +28,9 @@ enum class enum_opcode : std::uint8_t
 	mov_reg_to_reg = 0b10001000, // 100010dw
 	mov_immediate_to_reg_mem = 0b11000110, // 1100011w
 	mov_immediate_to_reg = 0b10110000,
+	add_reg_mem = 0b00000000, // 000000dw
+	add_immediate_to_register_memory = 0b10000000, //100000sw
+	add_immediate_to_accumulator = 0b00000100, // 0000010w
 };
 
 
@@ -106,8 +112,8 @@ struct decoder_8086
 		// Instruction0
 		const char* OpcodeBuffer = nullptr;
 		const char* EffectiveAddressBuff = nullptr;
-		instruction_t Instruction_0 = Instruction[InstructionIndex];
-		instruction_t Instruction_1 = Instruction[InstructionIndex + 1];
+		const instruction_t Instruction_0 = Instruction[InstructionIndex];
+		const instruction_t Instruction_1 = Instruction[InstructionIndex + 1];
 
 		if(false)
 		{
@@ -121,8 +127,8 @@ struct decoder_8086
 		OpcodeBuffer = "mov";
 		if((Instruction_0 & (instruction_t)enum_opcode_masks::reg_mem_to_from_reg) == (instruction_t)enum_opcode::mov_reg_to_reg)
 		{
-			std::size_t W = (std::size_t)(Instruction_0 & (instruction_t)enum_opcode_masks::w);
-			std::size_t D = (std::size_t)(Instruction_0 & (instruction_t)enum_opcode_masks::d);
+			std::size_t W = (std::size_t)(Instruction_0 & (instruction_t)enum_opcode_masks::w_0);
+			std::size_t D = (std::size_t)(Instruction_0 & (instruction_t)enum_opcode_masks::d_1);
 
 
 			// Reg
@@ -376,6 +382,97 @@ struct decoder_8086
 			
 			Out_InstructionOffset = W ? 3 : 2;
 		}
+		else if((Instruction_0 & (instruction_t)enum_opcode_masks::add_reg_mem) == (instruction_t)enum_opcode::add_reg_mem)
+		{
+			OpcodeBuffer = "add";
+			// Check MOD --> Depending on the MOD, then we are going to see the displacement, etc.
+			const instruction_t Mod = Instruction_1 & (instruction_t)enum_regions_masks::mod_mask;
+			const instruction_t D = Instruction_0 & (instruction_t)enum_opcode_masks::d_1;
+			const instruction_t W = Instruction_0 & (instruction_t)enum_opcode_masks::w_0;
+
+			const instruction_t Reg = (Instruction_1 & (instruction_t)enum_regions_masks::reg_mask) >> 3;
+			char* DecodedReg = G_RegStrings[W][Reg];
+
+			const instruction_t RM = (Instruction_1 & (instruction_t)enum_regions_masks::rm_mask);
+
+			if(Mod == (instruction_t)enum_mod::mm_no_displacement)
+			{
+				// Special case for direct address add ax, [334]
+				if(RM == 0b00000110)
+				{
+					const d_instruction_t Offset_L = Instruction[InstructionIndex + 2];
+					const d_instruction_t Offset_H = Instruction[InstructionIndex + 3];
+					const d_instruction_t Offset_16bit = Offset_L | (Offset_H << 8);
+
+					if(D)
+					{
+						std::printf("%s %s, [%i]", OpcodeBuffer, DecodedReg, Offset_16bit);
+					}
+					else
+					{
+						std::printf("%s [%i], %s", OpcodeBuffer, Offset_16bit, DecodedReg);
+					}
+
+					Out_InstructionOffset = 4;
+				}
+
+				const char* DecodedRM = G_EffAddressCalcRMTable[RM];
+				if(D)
+				{
+					std::printf("%s %s, %s", OpcodeBuffer, D ? DecodedReg : DecodedRM, D ? DecodedRM : DecodedReg);
+				}
+
+				Out_InstructionOffset = 2;
+			}
+			else if(Mod == (instruction_t)enum_mod::mm_displacement_8_bit)			
+			{
+				const instruction_t Instruction_2 = Instruction[InstructionIndex + 2];
+				const char* EffectiveAddress = G_EffAddressCalcRMTable[RM];
+				const instruction_t Offset_8bits = Instruction_2;
+
+				if(D)
+				{
+					std::printf("%s %s, [%s + %i]", OpcodeBuffer, DecodedReg, EffectiveAddress, Offset_8bits);
+				}
+				else
+				{
+					std::printf("%s [%s + %i], %s", OpcodeBuffer, EffectiveAddress, Offset_8bits, DecodedReg);
+				}
+
+				Out_InstructionOffset = 3;
+			}
+			else if(Mod == (instruction_t)enum_mod::mm_displacement_16_bit)
+			{
+				const d_instruction_t Displacement_L = Instruction[InstructionIndex + 2];
+				const d_instruction_t Displacement_H = Instruction[InstructionIndex + 3];
+				const char* EffectiveAddress = G_EffAddressCalcRMTable[RM];
+				const d_instruction_t Offset_16bits = Displacement_L | (Displacement_H << 8);
+
+				if(D)
+				{
+					std::printf("%s %s, [%s + %i]", OpcodeBuffer, DecodedReg, EffectiveAddress, Offset_16bits);
+				}
+				else 
+				{
+					std::printf("%s [%s + %i], %s", OpcodeBuffer, EffectiveAddress, Offset_16bits, DecodedReg);
+				}
+
+				Out_InstructionOffset = 4;
+			}
+			else if(Mod == (instruction_t)enum_mod::rm_no_displacement)
+			{
+				char* DecodedRM = G_RegStrings[W][RM];
+
+				std::printf("%s %s, %s", OpcodeBuffer, D ? DecodedReg : DecodedRM, D ? DecodedRM : DecodedReg);
+				Out_InstructionOffset = 2;
+			}
+			
+		}
+		else if()
+		{
+
+		}
+		
 
 		if(Out_InstructionOffset == -1)
 		{
