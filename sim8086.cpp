@@ -5,6 +5,8 @@
 #include <fstream>
 #include <bitset>
 
+#define DEBUG_DECODER 0
+
 
 // OPCODE 
 
@@ -72,13 +74,13 @@ typedef instruction_t* instruction;
 
 struct decoder_8086
 {
-	bool IsDisplacementNegative(instruction_t Instruction)
+	bool IsNegativeTwosComplement(instruction_t Instruction)
 	{
 		// As the 8086/88 use the two's complement for representing signed numbers, we have to check the LSF of the data, to determine the sign.
 		return Instruction & 0b10000000;
 	}
 
-	bool IsDisplacementNegative_dw(d_instruction_t D_Instruction)
+	bool IsNegativeTwosComplement_dw(d_instruction_t D_Instruction)
 	{
 		return D_Instruction & 0b1000000000000000;
 	}
@@ -114,14 +116,6 @@ struct decoder_8086
 		const char* EffectiveAddressBuff = nullptr;
 		const instruction_t Instruction_0 = Instruction[InstructionIndex];
 		const instruction_t Instruction_1 = Instruction[InstructionIndex + 1];
-
-		if(false)
-		{
-			std::cout << std::bitset<8>(Instruction_0).to_string() << std::endl;
-			std::cout << std::bitset<8>(Instruction_1).to_string() << std::endl;
-			std::cout << std::bitset<8>(Instruction[InstructionIndex + 2]).to_string()<< std::endl;
-			std::cout << std::bitset<8>(Instruction[InstructionIndex + 3]).to_string() << std::endl;
-		}
 		
 		
 		OpcodeBuffer = "mov";
@@ -177,7 +171,7 @@ struct decoder_8086
 					{
 						if (Displacement_8bit > 0)
 						{
-							if(IsDisplacementNegative(Displacement_8bit))
+							if(IsNegativeTwosComplement(Displacement_8bit))
 							{
 								Displacement_8bit = GetNegativeNumber(Displacement_8bit);
 								std::printf("%s %s, [%s - %i] \n", OpcodeBuffer, DecodedDestination, PartialEffectiveAddressBuff, Displacement_8bit);
@@ -198,7 +192,7 @@ struct decoder_8086
 					{
 						if (Displacement_8bit > 0)
 						{
-							if(IsDisplacementNegative(Displacement_8bit))
+							if(IsNegativeTwosComplement(Displacement_8bit))
 							{
 								Displacement_8bit = GetNegativeNumber(Displacement_8bit);
 								std::printf("%s [%s - %i], %s \n", OpcodeBuffer, PartialEffectiveAddressBuff, Displacement_8bit, DecodedReg);
@@ -226,7 +220,7 @@ struct decoder_8086
 
 					if(D)
 					{
-						if(IsDisplacementNegative_dw(Displacement_16bit))
+						if(IsNegativeTwosComplement_dw(Displacement_16bit))
 						{
 							Displacement_16bit = GetNegativeNumber_dw(Displacement_16bit);
 							std::printf("%s %s, [%s - %i] \n", OpcodeBuffer, DecodedReg, PartialEffectiveAddressBuff, Displacement_16bit);
@@ -238,7 +232,7 @@ struct decoder_8086
 					}
 					else
 					{
-						if(IsDisplacementNegative_dw(Displacement_16bit))
+						if(IsNegativeTwosComplement_dw(Displacement_16bit))
 						{
 							Displacement_16bit = GetNegativeNumber_dw(Displacement_16bit);
 							std::printf("%s [%s - %i], %s \n", OpcodeBuffer, PartialEffectiveAddressBuff, Displacement_16bit, DecodedReg);
@@ -302,7 +296,7 @@ struct decoder_8086
 			const instruction_t R_M = (Instruction_1 & (instruction_t)(enum_regions_masks::rm_mask));
 			char* DecodedEffectiveAddressBuff = G_EffAddressCalcRMTable[R_M];
 			
-			
+			// TODO Add the direct address 	
 			if(Mod == (instruction_t)enum_mod::mm_no_displacement)
 			{
 				const d_instruction_t Data_L = Instruction[InstructionIndex + 2];
@@ -406,11 +400,11 @@ struct decoder_8086
 
 					if(D)
 					{
-						std::printf("%s %s, [%i]", OpcodeBuffer, DecodedReg, Offset_16bit);
+						std::printf("%s %s, [%i]  \n", OpcodeBuffer, DecodedReg, Offset_16bit);
 					}
 					else
 					{
-						std::printf("%s [%i], %s", OpcodeBuffer, Offset_16bit, DecodedReg);
+						std::printf("%s [%i], %s  \n", OpcodeBuffer, Offset_16bit, DecodedReg);
 					}
 
 					Out_InstructionOffset = 4;
@@ -419,8 +413,13 @@ struct decoder_8086
 				const char* DecodedRM = G_EffAddressCalcRMTable[RM];
 				if(D)
 				{
-					std::printf("%s %s, %s", OpcodeBuffer, D ? DecodedReg : DecodedRM, D ? DecodedRM : DecodedReg);
+					std::printf("%s %s, [%s]  \n", OpcodeBuffer, DecodedReg, DecodedRM);
 				}
+				else
+				{
+					std::printf("%s [%s], %s  \n", OpcodeBuffer, DecodedRM, DecodedReg);
+				}
+
 
 				Out_InstructionOffset = 2;
 			}
@@ -432,11 +431,18 @@ struct decoder_8086
 
 				if(D)
 				{
-					std::printf("%s %s, [%s + %i]", OpcodeBuffer, DecodedReg, EffectiveAddress, Offset_8bits);
+					if(Offset_8bits > 0)
+					{
+						std::printf("%s %s, [%s + %i]  \n", OpcodeBuffer, DecodedReg, EffectiveAddress, Offset_8bits);
+					}
+					else
+					{
+						std::printf("%s %s, [%s]  \n", OpcodeBuffer, DecodedReg, EffectiveAddress);
+					}
 				}
 				else
 				{
-					std::printf("%s [%s + %i], %s", OpcodeBuffer, EffectiveAddress, Offset_8bits, DecodedReg);
+					std::printf("%s [%s + %i], %s  \n", OpcodeBuffer, EffectiveAddress, Offset_8bits, DecodedReg);
 				}
 
 				Out_InstructionOffset = 3;
@@ -450,11 +456,11 @@ struct decoder_8086
 
 				if(D)
 				{
-					std::printf("%s %s, [%s + %i]", OpcodeBuffer, DecodedReg, EffectiveAddress, Offset_16bits);
+					std::printf("%s %s, [%s + %i]  \n", OpcodeBuffer, DecodedReg, EffectiveAddress, Offset_16bits);
 				}
 				else 
 				{
-					std::printf("%s [%s + %i], %s", OpcodeBuffer, EffectiveAddress, Offset_16bits, DecodedReg);
+					std::printf("%s [%s + %i], %s  \n", OpcodeBuffer, EffectiveAddress, Offset_16bits, DecodedReg);
 				}
 
 				Out_InstructionOffset = 4;
@@ -463,20 +469,370 @@ struct decoder_8086
 			{
 				char* DecodedRM = G_RegStrings[W][RM];
 
-				std::printf("%s %s, %s", OpcodeBuffer, D ? DecodedReg : DecodedRM, D ? DecodedRM : DecodedReg);
+				std::printf("%s %s, %s  \n", OpcodeBuffer, D ? DecodedReg : DecodedRM, D ? DecodedRM : DecodedReg);
 				Out_InstructionOffset = 2;
 			}
 			
 		}
-		else if()
+		else if((Instruction_0 & (instruction_t)enum_opcode_masks::add_immediate_to_register_memory) == (instruction_t)enum_opcode::add_immediate_to_register_memory)
 		{
+			OpcodeBuffer = "add";
+			//if S == 1 we have to do the calculation for getting the negative number.
+			const instruction_t S = Instruction_0 & (instruction_t)enum_opcode_masks::d_1;
+			const instruction_t Mod = Instruction_1 & (instruction_t)enum_regions_masks::mod_mask;
+			const instruction_t W = Instruction_0 & (instruction_t)enum_opcode_masks::w_0;
+			const instruction_t RM = Instruction_1 & (instruction_t)enum_regions_masks::rm_mask;
+
+			if(Mod == (instruction_t)enum_mod::rm_no_displacement)
+			{		
+
+				/* Here is important to check the S flag, as it means  sign extension.
+				This is a smart way of the encoder to tell the CPU to use a 16 bit word data for the operation,
+				most likely because we are operating on a double word register, but only encode 1 byte in the instruction... So cool.*/
+				const char* DecodedRM = G_RegStrings[W][RM];
+
+				// check if operating in double word
+				if(W)
+				{
+					d_instruction_t DataL = Instruction[InstructionIndex + 2];
+
+					// Check if sign extension
+					if(S)
+					{
+						if(IsNegativeTwosComplement_dw(DataL))
+						{
+							d_instruction_t Negative_16bit = GetNegativeNumber_dw(DataL);
+							std::printf("%s %s, -%i  \n", OpcodeBuffer, DecodedRM, Negative_16bit);
+						}
+						else
+						{
+							std::printf("%s %s, %i  \n", OpcodeBuffer, DecodedRM, DataL);
+						}
+
+						Out_InstructionOffset = 3;
+
+					}
+					else
+					{
+						d_instruction_t Data_H = Instruction[InstructionIndex + 3];
+						d_instruction_t Data_16bit = (Data_H << 8) | (DataL);
+
+						if (IsNegativeTwosComplement_dw(Data_16bit))
+						{
+							d_instruction_t Negative_16bit = GetNegativeNumber_dw(Data_16bit);
+							std::printf("%s %s, -%i  \n", OpcodeBuffer, DecodedRM, Negative_16bit);
+						}
+						else
+						{
+							std::printf("%s %s, %i  \n", OpcodeBuffer, DecodedRM, Data_16bit);
+						}
+
+						Out_InstructionOffset = 4;
+					}
+				}
+				else
+				{
+					instruction_t Data_8bit = Instruction[InstructionIndex + 2];
+					if(IsNegativeTwosComplement(Data_8bit))
+					{
+						instruction_t NegativeData_8bit = GetNegativeNumber(Data_8bit);
+						std::printf("%s %s, -%i  \n", OpcodeBuffer, DecodedRM, NegativeData_8bit);
+					}
+					else
+					{
+						std::printf("%s %s, %i  \n", OpcodeBuffer, DecodedRM, Data_8bit);
+					}
+
+					Out_InstructionOffset = 3;
+				}
+			}
+			else if(Mod == (instruction_t)enum_mod::mm_displacement_8_bit)
+			{
+				const char* EffectiveAddress = G_EffAddressCalcRMTable[RM];
+				instruction_t Displacement_8bit = Instruction[InstructionIndex + 2];
+				d_instruction_t Data_L = Instruction[InstructionIndex + 3];
+				
+				if(W)
+				{
+					if(S)
+					{
+						if(IsNegativeTwosComplement(Displacement_8bit))
+						{
+							d_instruction_t Negative_Displacement_8bit= GetNegativeNumber_dw(Displacement_8bit);
+							if(IsNegativeTwosComplement(Data_L))
+							{
+								std::printf("%s word [%s - %i], -%i", OpcodeBuffer, EffectiveAddress, Negative_Displacement_8bit, GetNegativeNumber_dw(Data_L));								
+							}
+							else 
+							{
+								std::printf("%s word [%s - %i], %i", OpcodeBuffer, EffectiveAddress, Negative_Displacement_8bit, Data_L);
+							}
+
+						}
+						else
+						{
+							if(IsNegativeTwosComplement(Data_L))
+							{
+								std::printf("%s word [%s + %i], -%i", OpcodeBuffer, EffectiveAddress, Displacement_8bit, GetNegativeNumber_dw(Data_L));
+							}
+							else
+							{
+								std::printf("%s word [%s + %i], %i", OpcodeBuffer, EffectiveAddress, Displacement_8bit, Data_L);
+							}
+						}
+
+						Out_InstructionOffset = 4;
+					}
+					else
+					{
+						d_instruction_t Data_H = Instruction[InstructionIndex + 4];
+						d_instruction_t Data = (Data_H << 8) | Data_L;
+
+						if (IsNegativeTwosComplement(Displacement_8bit))
+						{
+							d_instruction_t Negative_Displacement_8bit = GetNegativeNumber_dw(Displacement_8bit);
+							if(IsNegativeTwosComplement_dw(Data))
+							{
+								std::printf("%s word [%s - %i], -%i", OpcodeBuffer, EffectiveAddress, Negative_Displacement_8bit, GetNegativeNumber_dw(Data));
+							}
+							else
+							{
+								std::printf("%s word [%s - %i], %i", OpcodeBuffer, EffectiveAddress, Negative_Displacement_8bit, Data);
+							}
+
+						}
+						else
+						{
+							if(IsNegativeTwosComplement_dw(Data))
+							{
+								std::printf("%s word [%s + %i], -%i", OpcodeBuffer, EffectiveAddress, Displacement_8bit, GetNegativeNumber_dw(Data));
+							}
+							else
+							{
+								std::printf("%s word [%s + %i], %i", OpcodeBuffer, EffectiveAddress, Displacement_8bit, Data);
+							}
+						}
+
+						Out_InstructionOffset = 5;
+					}
+
+				}
+				else
+				{
+					if(IsNegativeTwosComplement(Displacement_8bit))
+					{
+						if(IsNegativeTwosComplement(Data_L))
+						{
+							std::printf("%s byte [%s - %i], -%i \n", OpcodeBuffer, EffectiveAddress, GetNegativeNumber(Displacement_8bit), GetNegativeNumber_dw(Data_L));
+						}
+						else
+						{
+							std::printf("%s byte [%s - %i], %i \n", OpcodeBuffer, EffectiveAddress, GetNegativeNumber(Displacement_8bit), Data_L);
+						}
+					}
+					else
+					{
+						if (IsNegativeTwosComplement(Data_L))
+						{
+							std::printf("%s byte [%s + %i], -%i  \n", OpcodeBuffer, EffectiveAddress, Displacement_8bit, GetNegativeNumber_dw(Data_L));
+						}
+						else
+						{
+							std::printf("%s byte [%s + %i], %i  \n", OpcodeBuffer, EffectiveAddress, Displacement_8bit, Data_L);
+						}
+					}
+
+					Out_InstructionOffset = 4;
+				}
+
+			}
+			else if (Mod == (instruction_t)enum_mod::mm_displacement_16_bit)
+			{
+
+				const char* EffectiveAddress = G_EffAddressCalcRMTable[RM];
+				d_instruction_t Displacement_L_16bit = Instruction[InstructionIndex + 2];
+				d_instruction_t Displacement_H_16bit = Instruction[InstructionIndex + 3];
+				d_instruction_t Displacement_16bit = (Displacement_H_16bit << 8) | Displacement_L_16bit;
+				d_instruction_t Data_L = Instruction[InstructionIndex + 4];
+
+				if (W)
+				{
+					if (S)
+					{
+						if (IsNegativeTwosComplement_dw(Displacement_16bit))
+						{
+							d_instruction_t Negative_Displacement_8bit = GetNegativeNumber_dw(Displacement_16bit);
+							if (IsNegativeTwosComplement(Data_L))
+							{
+								std::printf("%s word [%s - %i], -%i \n", OpcodeBuffer, EffectiveAddress, Negative_Displacement_8bit, GetNegativeNumber_dw(Data_L));
+							}
+							else
+							{
+								std::printf("%s word [%s - %i], %i \n", OpcodeBuffer, EffectiveAddress, Negative_Displacement_8bit, Data_L);
+							}
+
+						}
+						else
+						{
+							if (IsNegativeTwosComplement(Data_L))
+							{
+								std::printf("%s word [%s + %i], -%i \n", OpcodeBuffer, EffectiveAddress, Displacement_16bit, GetNegativeNumber_dw(Data_L));
+							}
+							else
+							{
+								std::printf("%s word [%s + %i], %i \n", OpcodeBuffer, EffectiveAddress, Displacement_16bit, Data_L);
+							}
+						}
+
+						Out_InstructionOffset = 5;
+					}
+					else
+					{
+						d_instruction_t Data_H = Instruction[InstructionIndex + 4];
+						d_instruction_t Data = (Data_H << 8) | Data_L;
+
+						if (IsNegativeTwosComplement_dw(Displacement_16bit))
+						{
+							if (IsNegativeTwosComplement_dw(Data))
+							{
+								std::printf("%s word [%s - %i], -%i \n", OpcodeBuffer, EffectiveAddress, GetNegativeNumber_dw(Displacement_16bit), GetNegativeNumber_dw(Data));
+							}
+							else
+							{
+								std::printf("%s word [%s - %i], %i \n", OpcodeBuffer, EffectiveAddress, GetNegativeNumber_dw(Displacement_16bit), Data);
+							}
+
+						}
+						else
+						{
+							if (IsNegativeTwosComplement_dw(Data))
+							{
+								std::printf("%s word [%s + %i], -%i \n", OpcodeBuffer, EffectiveAddress, Displacement_16bit, GetNegativeNumber_dw(Data));
+							}
+							else
+							{
+								std::printf("%s word [%s + %i], %i \n", OpcodeBuffer, EffectiveAddress, Displacement_16bit, Data);
+							}
+						}
+
+						Out_InstructionOffset = 6;
+					}
+
+				}
+				else
+				{
+					if (IsNegativeTwosComplement(Displacement_16bit))
+					{
+						if (IsNegativeTwosComplement(Data_L))
+						{
+							std::printf("%s byte [%s - %i], -%i \n", OpcodeBuffer, EffectiveAddress, GetNegativeNumber(Displacement_16bit), GetNegativeNumber_dw(Data_L));
+						}
+						else
+						{
+							std::printf("%s byte [%s - %i], %i \n", OpcodeBuffer, EffectiveAddress, GetNegativeNumber(Displacement_16bit), Data_L);
+						}
+					}
+					else
+					{
+						if (IsNegativeTwosComplement(Data_L))
+						{
+							std::printf("%s byte [%s + %i], -%i  \n", OpcodeBuffer, EffectiveAddress, Displacement_16bit, GetNegativeNumber_dw(Data_L));
+						}
+						else
+						{
+							std::printf("%s byte [%s + %i], %i  \n", OpcodeBuffer, EffectiveAddress, Displacement_16bit, Data_L);
+						}
+					}
+
+					Out_InstructionOffset = 5;
+				}
+			}
+			else if (Mod == (instruction_t)enum_mod::mm_no_displacement)
+			{
+				// Special case for direct address add ax, [334]
+				if (RM == 0b00000110)
+				{
+					const d_instruction_t Offset_L = Instruction[InstructionIndex + 2];
+					const d_instruction_t Offset_H = Instruction[InstructionIndex + 3];
+					const d_instruction_t Offset_16bit = Offset_L | (Offset_H << 8);
+					d_instruction_t Data_L = Instruction[InstructionIndex + 4];
+
+					if(W)
+					{
+						d_instruction_t Data_H = Instruction[InstructionIndex + 5];
+						d_instruction_t Data = (Data_H << 8) | Data_L;
+						std::printf("%s [%i], %i  \n", OpcodeBuffer, Offset_16bit, Data);
+						Out_InstructionOffset = 6;
+
+					}
+					else
+					{
+						std::printf("%s [%i], %i  \n", OpcodeBuffer, Offset_16bit, Data_L);
+						Out_InstructionOffset = 5;
+					}
+
+		
+				}
+				else 
+				{
+					const char* DecodedRM = G_EffAddressCalcRMTable[RM];
+					d_instruction_t Data_L = Instruction[InstructionIndex + 2];
+
+					if (W)
+					{
+						d_instruction_t Data_H = Instruction[InstructionIndex + 3];
+						d_instruction_t Data = (Data_H << 8) | Data_L;
+						std::printf("%s word [%s], %i  \n", OpcodeBuffer, DecodedRM, Data);
+						Out_InstructionOffset = 4;
+
+					}
+					else
+					{
+						std::printf("%s byte [%s], %i  \n", OpcodeBuffer, DecodedRM, Data_L);
+						Out_InstructionOffset = 3;
+					}
+				}
+			}
 
 		}
+		else if((Instruction_0 & (instruction_t)enum_opcode_masks::add_immediate_to_accumulator) == (instruction_t)enum_opcode::add_immediate_to_accumulator)
+		{
+			// TODO IMPLEMENT
+		}
+
+		
 		
 
 		if(Out_InstructionOffset == -1)
 		{
 			std::cout << "Instruction not implemented!\n";			
+#ifdef DEBUG_DECODER
+
+			if (DEBUG_DECODER)
+			{
+				for (int i = 0; i < 4; ++i)
+				{
+					std::cout << std::bitset<8>(Instruction[InstructionIndex + i]).to_string() << std::endl;
+				}
+			}
+
+#endif // DEBUG_DECODER
+		}
+		else 
+		{
+
+			
+#ifdef DEBUG_DECODER
+
+			if (DEBUG_DECODER) 
+			{
+				for (int i = 0; i < Out_InstructionOffset; ++i)
+				{
+					std::cout << std::bitset<8>(Instruction[InstructionIndex + i]).to_string() << std::endl;
+				}
+			}
+
+#endif // DEBUG_DECODER
 		}
 	}
 
@@ -486,7 +842,7 @@ struct decoder_8086
 
 int main ()
 {
-	std::ifstream File("listing_0040_challenge_movs", std::ios::binary);
+	std::ifstream File("listing_0041_add_sub_cmp_jnz", std::ios::binary);
 
 	if(!File.is_open())
 	{
