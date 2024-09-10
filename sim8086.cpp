@@ -18,9 +18,9 @@ enum class enum_opcode_masks : std::uint8_t
 	immediate_to_register_mem_w = 0b00000001,
 	immediate_to_register_w = 0b00001000,
 	immediate_to_register_reg = 0b00000111,
-	add_reg_mem = 0b11111100,
-	add_immediate_to_register_memory = 0b11111100,
-	add_immediate_to_accumulator = 0b11111110,
+	operation_reg_mem = 0b11111100,
+	operation_immediate_to_register_memory = 0b11111100,
+	operation_immediate_to_accumulator = 0b11111110,
 	d_1 = 0b00000010,
 	w_0 = 0b00000001
 };
@@ -31,8 +31,18 @@ enum class enum_opcode : std::uint8_t
 	mov_immediate_to_reg_mem = 0b11000110, // 1100011w
 	mov_immediate_to_reg = 0b10110000,
 	add_reg_mem = 0b00000000, // 000000dw
-	add_immediate_to_register_memory = 0b10000000, //100000sw
+	add_immediate_to_register_memory = 0b10000000, // 100000sw
 	add_immediate_to_accumulator = 0b00000100, // 0000010w
+	adc_reg_mem = 0b00010000, // 000100dw
+	adc_immediate_to_register_memory = 0b10000000, // 0b100000sw  
+	adc_immediate_to_accumulator = 0b00010100, // 00010100w
+	sub_reg_mem = 0b00101000, // 001010dw
+	sub_immediate_from_register_memory = 0b10000000, //10000000
+	sub_immediate_from_accumulator = 0b00101100, //0010110w
+	sbb_reg_mem = 0b00011000, // 000110dw
+	sbb_immediate_from_register_memory = 0b10000000, // 100000sw
+	sbb_immediate_from_accumulator = 0b00011100 // 0001110w
+
 };
 
 
@@ -96,6 +106,21 @@ struct decoder_8086
 		D_Instruction = ~D_Instruction;
 		return D_Instruction + 1;
 	}
+
+	enum class enum_decoder_op : std::uint8_t
+	{
+		ADD,
+		ADC,
+		SUB,
+		SBB
+	};
+
+	enum class enum_decoder_op_mode : std::uint8_t
+	{
+		Reg_Memory_And_Register_Either,
+		Immediate_From_To_Register_Memory,
+		Immediate_From_To_Accumulator
+	};
 
 	
 	// It gives us a buffer with the assembly code decoded.
@@ -376,29 +401,140 @@ struct decoder_8086
 			
 			Out_InstructionOffset = W ? 3 : 2;
 		}
-		else if((Instruction_0 & (instruction_t)enum_opcode_masks::add_reg_mem) == (instruction_t)enum_opcode::add_reg_mem)
+		else if((Instruction_0 & (instruction_t)enum_opcode_masks::operation_reg_mem) == (instruction_t)enum_opcode::add_reg_mem)
 		{
-			OpcodeBuffer = "add";
-			// Check MOD --> Depending on the MOD, then we are going to see the displacement, etc.
-			const instruction_t Mod = Instruction_1 & (instruction_t)enum_regions_masks::mod_mask;
-			const instruction_t D = Instruction_0 & (instruction_t)enum_opcode_masks::d_1;
-			const instruction_t W = Instruction_0 & (instruction_t)enum_opcode_masks::w_0;
+			DecodeOpInstruction(Instruction, InstructionIndex, enum_decoder_op::ADD, enum_decoder_op_mode::Reg_Memory_And_Register_Either, Out_InstructionOffset);
+		}
+		else if((Instruction_0 & (instruction_t)enum_opcode_masks::operation_immediate_to_register_memory) == (instruction_t)enum_opcode::add_immediate_to_register_memory && ((Instruction_1 & (instruction_t)(0b00111000)) == 0b00000000) )
+		{
+			DecodeOpInstruction(Instruction, InstructionIndex, enum_decoder_op::ADD, enum_decoder_op_mode::Immediate_From_To_Register_Memory, Out_InstructionOffset);
+			
+		}
+		else if((Instruction_0 & (instruction_t)enum_opcode_masks::operation_immediate_to_accumulator) == (instruction_t)enum_opcode::add_immediate_to_accumulator)
+		{
+			DecodeOpInstruction(Instruction, InstructionIndex, enum_decoder_op::ADD, enum_decoder_op_mode::Immediate_From_To_Accumulator, Out_InstructionOffset);
+		}
+		else if((Instruction_0 & (instruction_t)enum_opcode_masks::operation_reg_mem) == (instruction_t)enum_opcode::adc_reg_mem)
+		{
+			DecodeOpInstruction(Instruction, InstructionIndex, enum_decoder_op::ADC, enum_decoder_op_mode::Reg_Memory_And_Register_Either, Out_InstructionOffset);
+		}
+		else if((Instruction_0 & (instruction_t)enum_opcode_masks::operation_immediate_to_register_memory) == (instruction_t)enum_opcode::adc_immediate_to_register_memory && ((Instruction_1 & (instruction_t)(0b00010000)) == 0b00010000))
+		{
+			DecodeOpInstruction(Instruction, InstructionIndex, enum_decoder_op::ADC, enum_decoder_op_mode::Immediate_From_To_Register_Memory, Out_InstructionOffset);
+		}
+		else if ((Instruction_0 & (instruction_t)enum_opcode_masks::operation_immediate_to_accumulator) == (instruction_t)enum_opcode::adc_immediate_to_accumulator)
+		{
+			DecodeOpInstruction(Instruction, InstructionIndex, enum_decoder_op::ADC, enum_decoder_op_mode::Immediate_From_To_Accumulator, Out_InstructionOffset);
+		}
+		else if ((Instruction_0 & (instruction_t)enum_opcode_masks::operation_reg_mem) == (instruction_t)enum_opcode::sub_reg_mem)
+		{
+			DecodeOpInstruction(Instruction, InstructionIndex, enum_decoder_op::SUB, enum_decoder_op_mode::Reg_Memory_And_Register_Either, Out_InstructionOffset);
+		}
+		else if ((Instruction_0 & (instruction_t)enum_opcode_masks::operation_immediate_to_register_memory) == (instruction_t)enum_opcode::adc_immediate_to_register_memory && ((Instruction_1 & (instruction_t)(0b00101000)) == 0b00101000))
+		{
+			DecodeOpInstruction(Instruction, InstructionIndex, enum_decoder_op::SUB, enum_decoder_op_mode::Immediate_From_To_Register_Memory, Out_InstructionOffset);
+		}
+		else if ((Instruction_0 & (instruction_t)enum_opcode_masks::operation_immediate_to_accumulator) == (instruction_t)enum_opcode::sub_immediate_from_accumulator)
+		{
+			DecodeOpInstruction(Instruction, InstructionIndex, enum_decoder_op::SUB, enum_decoder_op_mode::Immediate_From_To_Accumulator, Out_InstructionOffset);
+		}
+		else if ((Instruction_0 & (instruction_t)enum_opcode_masks::operation_reg_mem) == (instruction_t)enum_opcode::sbb_reg_mem)
+		{
+			DecodeOpInstruction(Instruction, InstructionIndex, enum_decoder_op::SBB, enum_decoder_op_mode::Reg_Memory_And_Register_Either, Out_InstructionOffset);
+		}
+		else if ((Instruction_0 & (instruction_t)enum_opcode_masks::operation_immediate_to_register_memory) == (instruction_t)enum_opcode::sbb_immediate_from_register_memory && ((Instruction_1 & (instruction_t)(0b00011000)) == 0b00011000))
+		{
+			DecodeOpInstruction(Instruction, InstructionIndex, enum_decoder_op::SBB, enum_decoder_op_mode::Immediate_From_To_Register_Memory, Out_InstructionOffset);
+		}
+		else if ((Instruction_0 & (instruction_t)enum_opcode_masks::operation_immediate_to_accumulator) == (instruction_t)enum_opcode::sbb_immediate_from_accumulator)
+		{
+			DecodeOpInstruction(Instruction, InstructionIndex, enum_decoder_op::SBB, enum_decoder_op_mode::Immediate_From_To_Accumulator, Out_InstructionOffset);
+		}
+		else if()
+		{
+			// TODO IMPLEMENT CMP 
 
+		}
+		if(Out_InstructionOffset == -1)
+		{
+			std::cout << "Instruction not implemented!\n";			
+#ifdef DEBUG_DECODER
+
+			if (DEBUG_DECODER)
+			{
+				for (int i = 0; i < 4; ++i)
+				{
+					std::cout << std::bitset<8>(Instruction[InstructionIndex + i]).to_string() << std::endl;
+				}
+			}
+
+#endif // DEBUG_DECODER
+		}
+		else 
+		{
+
+			
+#ifdef DEBUG_DECODER
+
+			if (DEBUG_DECODER) 
+			{
+				for (int i = 0; i < Out_InstructionOffset; ++i)
+				{
+					std::cout << std::bitset<8>(Instruction[InstructionIndex + i]).to_string() << std::endl;
+				}
+			}
+
+#endif // DEBUG_DECODER
+		}
+	}
+
+	void DecodeOpInstruction(instruction Instruction, instruction_t InstructionIndex, enum_decoder_op Op, enum_decoder_op_mode Op_Mode, int8_t& Out_InstructionOffset)
+	{
+		char* OpcodeBuffer;
+		switch (Op)
+		{
+		case decoder_8086::enum_decoder_op::ADD:
+			OpcodeBuffer = "add";
+			break;
+		case decoder_8086::enum_decoder_op::ADC:
+			OpcodeBuffer = "adc";
+			break;
+		case decoder_8086::enum_decoder_op::SUB:
+			OpcodeBuffer = "sub";
+			break;
+		case decoder_8086::enum_decoder_op::SBB:
+			OpcodeBuffer = "sbb";
+			break;
+		default:
+			break;
+		}
+
+		const instruction_t Instruction_0 = Instruction[InstructionIndex];
+		const instruction_t Instruction_1 = Instruction[InstructionIndex + 1];
+
+		const instruction_t W = Instruction_0 & (instruction_t)enum_opcode_masks::w_0;
+		const instruction_t D_Or_S = Instruction_0 & (instruction_t)enum_opcode_masks::d_1;
+
+		switch (Op_Mode)
+		{
+		case decoder_8086::enum_decoder_op_mode::Reg_Memory_And_Register_Either:
+
+		{
+			const instruction_t Mod = Instruction_1 & (instruction_t)enum_regions_masks::mod_mask;
 			const instruction_t Reg = (Instruction_1 & (instruction_t)enum_regions_masks::reg_mask) >> 3;
 			char* DecodedReg = G_RegStrings[W][Reg];
-
 			const instruction_t RM = (Instruction_1 & (instruction_t)enum_regions_masks::rm_mask);
 
-			if(Mod == (instruction_t)enum_mod::mm_no_displacement)
+			if (Mod == (instruction_t)enum_mod::mm_no_displacement)
 			{
 				// Special case for direct address add ax, [334]
-				if(RM == 0b00000110)
+				if (RM == 0b00000110)
 				{
 					const d_instruction_t Offset_L = Instruction[InstructionIndex + 2];
 					const d_instruction_t Offset_H = Instruction[InstructionIndex + 3];
 					const d_instruction_t Offset_16bit = Offset_L | (Offset_H << 8);
 
-					if(D)
+					if (D_Or_S)
 					{
 						std::printf("%s %s, [%i]  \n", OpcodeBuffer, DecodedReg, Offset_16bit);
 					}
@@ -411,7 +547,7 @@ struct decoder_8086
 				}
 
 				const char* DecodedRM = G_EffAddressCalcRMTable[RM];
-				if(D)
+				if (D_Or_S)
 				{
 					std::printf("%s %s, [%s]  \n", OpcodeBuffer, DecodedReg, DecodedRM);
 				}
@@ -423,15 +559,15 @@ struct decoder_8086
 
 				Out_InstructionOffset = 2;
 			}
-			else if(Mod == (instruction_t)enum_mod::mm_displacement_8_bit)			
+			else if (Mod == (instruction_t)enum_mod::mm_displacement_8_bit)
 			{
 				const instruction_t Instruction_2 = Instruction[InstructionIndex + 2];
 				const char* EffectiveAddress = G_EffAddressCalcRMTable[RM];
 				const instruction_t Offset_8bits = Instruction_2;
 
-				if(D)
+				if (D_Or_S)
 				{
-					if(Offset_8bits > 0)
+					if (Offset_8bits > 0)
 					{
 						std::printf("%s %s, [%s + %i]  \n", OpcodeBuffer, DecodedReg, EffectiveAddress, Offset_8bits);
 					}
@@ -447,44 +583,42 @@ struct decoder_8086
 
 				Out_InstructionOffset = 3;
 			}
-			else if(Mod == (instruction_t)enum_mod::mm_displacement_16_bit)
+			else if (Mod == (instruction_t)enum_mod::mm_displacement_16_bit)
 			{
 				const d_instruction_t Displacement_L = Instruction[InstructionIndex + 2];
 				const d_instruction_t Displacement_H = Instruction[InstructionIndex + 3];
 				const char* EffectiveAddress = G_EffAddressCalcRMTable[RM];
 				const d_instruction_t Offset_16bits = Displacement_L | (Displacement_H << 8);
 
-				if(D)
+				if (D_Or_S)
 				{
 					std::printf("%s %s, [%s + %i]  \n", OpcodeBuffer, DecodedReg, EffectiveAddress, Offset_16bits);
 				}
-				else 
+				else
 				{
 					std::printf("%s [%s + %i], %s  \n", OpcodeBuffer, EffectiveAddress, Offset_16bits, DecodedReg);
 				}
 
 				Out_InstructionOffset = 4;
 			}
-			else if(Mod == (instruction_t)enum_mod::rm_no_displacement)
+			else if (Mod == (instruction_t)enum_mod::rm_no_displacement)
 			{
 				char* DecodedRM = G_RegStrings[W][RM];
 
-				std::printf("%s %s, %s  \n", OpcodeBuffer, D ? DecodedReg : DecodedRM, D ? DecodedRM : DecodedReg);
+				std::printf("%s %s, %s  \n", OpcodeBuffer, D_Or_S ? DecodedReg : DecodedRM, D_Or_S ? DecodedRM : DecodedReg);
 				Out_InstructionOffset = 2;
 			}
-			
 		}
-		else if((Instruction_0 & (instruction_t)enum_opcode_masks::add_immediate_to_register_memory) == (instruction_t)enum_opcode::add_immediate_to_register_memory)
-		{
-			OpcodeBuffer = "add";
-			//if S == 1 we have to do the calculation for getting the negative number.
-			const instruction_t S = Instruction_0 & (instruction_t)enum_opcode_masks::d_1;
-			const instruction_t Mod = Instruction_1 & (instruction_t)enum_regions_masks::mod_mask;
-			const instruction_t W = Instruction_0 & (instruction_t)enum_opcode_masks::w_0;
-			const instruction_t RM = Instruction_1 & (instruction_t)enum_regions_masks::rm_mask;
 
-			if(Mod == (instruction_t)enum_mod::rm_no_displacement)
-			{		
+		break;
+		case decoder_8086::enum_decoder_op_mode::Immediate_From_To_Register_Memory:
+
+		{
+			const instruction_t Mod = Instruction_1 & (instruction_t)enum_regions_masks::mod_mask;
+			const instruction_t RM = (Instruction_1 & (instruction_t)enum_regions_masks::rm_mask);
+
+			if (Mod == (instruction_t)enum_mod::rm_no_displacement)
+			{
 
 				/* Here is important to check the S flag, as it means  sign extension.
 				This is a smart way of the encoder to tell the CPU to use a 16 bit word data for the operation,
@@ -492,14 +626,14 @@ struct decoder_8086
 				const char* DecodedRM = G_RegStrings[W][RM];
 
 				// check if operating in double word
-				if(W)
+				if (W)
 				{
 					d_instruction_t DataL = Instruction[InstructionIndex + 2];
 
 					// Check if sign extension
-					if(S)
+					if (D_Or_S)
 					{
-						if(IsNegativeTwosComplement_dw(DataL))
+						if (IsNegativeTwosComplement_dw(DataL))
 						{
 							d_instruction_t Negative_16bit = GetNegativeNumber_dw(DataL);
 							std::printf("%s %s, -%i  \n", OpcodeBuffer, DecodedRM, Negative_16bit);
@@ -533,7 +667,7 @@ struct decoder_8086
 				else
 				{
 					instruction_t Data_8bit = Instruction[InstructionIndex + 2];
-					if(IsNegativeTwosComplement(Data_8bit))
+					if (IsNegativeTwosComplement(Data_8bit))
 					{
 						instruction_t NegativeData_8bit = GetNegativeNumber(Data_8bit);
 						std::printf("%s %s, -%i  \n", OpcodeBuffer, DecodedRM, NegativeData_8bit);
@@ -546,38 +680,38 @@ struct decoder_8086
 					Out_InstructionOffset = 3;
 				}
 			}
-			else if(Mod == (instruction_t)enum_mod::mm_displacement_8_bit)
+			else if (Mod == (instruction_t)enum_mod::mm_displacement_8_bit)
 			{
 				const char* EffectiveAddress = G_EffAddressCalcRMTable[RM];
 				instruction_t Displacement_8bit = Instruction[InstructionIndex + 2];
 				d_instruction_t Data_L = Instruction[InstructionIndex + 3];
-				
-				if(W)
+
+				if (W)
 				{
-					if(S)
+					if (D_Or_S)
 					{
-						if(IsNegativeTwosComplement(Displacement_8bit))
+						if (IsNegativeTwosComplement(Displacement_8bit))
 						{
-							d_instruction_t Negative_Displacement_8bit= GetNegativeNumber_dw(Displacement_8bit);
-							if(IsNegativeTwosComplement(Data_L))
+							d_instruction_t Negative_Displacement_8bit = GetNegativeNumber_dw(Displacement_8bit);
+							if (IsNegativeTwosComplement(Data_L))
 							{
-								std::printf("%s word [%s - %i], -%i", OpcodeBuffer, EffectiveAddress, Negative_Displacement_8bit, GetNegativeNumber_dw(Data_L));								
+								std::printf("%s word [%s - %i], -%i  \n", OpcodeBuffer, EffectiveAddress, Negative_Displacement_8bit, GetNegativeNumber_dw(Data_L));
 							}
-							else 
+							else
 							{
-								std::printf("%s word [%s - %i], %i", OpcodeBuffer, EffectiveAddress, Negative_Displacement_8bit, Data_L);
+								std::printf("%s word [%s - %i], %i  \n", OpcodeBuffer, EffectiveAddress, Negative_Displacement_8bit, Data_L);
 							}
 
 						}
 						else
 						{
-							if(IsNegativeTwosComplement(Data_L))
+							if (IsNegativeTwosComplement(Data_L))
 							{
-								std::printf("%s word [%s + %i], -%i", OpcodeBuffer, EffectiveAddress, Displacement_8bit, GetNegativeNumber_dw(Data_L));
+								std::printf("%s word [%s + %i], -%i  \n", OpcodeBuffer, EffectiveAddress, Displacement_8bit, GetNegativeNumber_dw(Data_L));
 							}
 							else
 							{
-								std::printf("%s word [%s + %i], %i", OpcodeBuffer, EffectiveAddress, Displacement_8bit, Data_L);
+								std::printf("%s word [%s + %i], %i  \n", OpcodeBuffer, EffectiveAddress, Displacement_8bit, Data_L);
 							}
 						}
 
@@ -591,25 +725,25 @@ struct decoder_8086
 						if (IsNegativeTwosComplement(Displacement_8bit))
 						{
 							d_instruction_t Negative_Displacement_8bit = GetNegativeNumber_dw(Displacement_8bit);
-							if(IsNegativeTwosComplement_dw(Data))
+							if (IsNegativeTwosComplement_dw(Data))
 							{
-								std::printf("%s word [%s - %i], -%i", OpcodeBuffer, EffectiveAddress, Negative_Displacement_8bit, GetNegativeNumber_dw(Data));
+								std::printf("%s word [%s - %i], -%i  \n", OpcodeBuffer, EffectiveAddress, Negative_Displacement_8bit, GetNegativeNumber_dw(Data));
 							}
 							else
 							{
-								std::printf("%s word [%s - %i], %i", OpcodeBuffer, EffectiveAddress, Negative_Displacement_8bit, Data);
+								std::printf("%s word [%s - %i], %i  \n", OpcodeBuffer, EffectiveAddress, Negative_Displacement_8bit, Data);
 							}
 
 						}
 						else
 						{
-							if(IsNegativeTwosComplement_dw(Data))
+							if (IsNegativeTwosComplement_dw(Data))
 							{
-								std::printf("%s word [%s + %i], -%i", OpcodeBuffer, EffectiveAddress, Displacement_8bit, GetNegativeNumber_dw(Data));
+								std::printf("%s word [%s + %i], -%i  \n", OpcodeBuffer, EffectiveAddress, Displacement_8bit, GetNegativeNumber_dw(Data));
 							}
 							else
 							{
-								std::printf("%s word [%s + %i], %i", OpcodeBuffer, EffectiveAddress, Displacement_8bit, Data);
+								std::printf("%s word [%s + %i], %i  \n", OpcodeBuffer, EffectiveAddress, Displacement_8bit, Data);
 							}
 						}
 
@@ -619,9 +753,9 @@ struct decoder_8086
 				}
 				else
 				{
-					if(IsNegativeTwosComplement(Displacement_8bit))
+					if (IsNegativeTwosComplement(Displacement_8bit))
 					{
-						if(IsNegativeTwosComplement(Data_L))
+						if (IsNegativeTwosComplement(Data_L))
 						{
 							std::printf("%s byte [%s - %i], -%i \n", OpcodeBuffer, EffectiveAddress, GetNegativeNumber(Displacement_8bit), GetNegativeNumber_dw(Data_L));
 						}
@@ -657,7 +791,7 @@ struct decoder_8086
 
 				if (W)
 				{
-					if (S)
+					if (D_Or_S)
 					{
 						if (IsNegativeTwosComplement_dw(Displacement_16bit))
 						{
@@ -757,7 +891,7 @@ struct decoder_8086
 					const d_instruction_t Offset_16bit = Offset_L | (Offset_H << 8);
 					d_instruction_t Data_L = Instruction[InstructionIndex + 4];
 
-					if(W)
+					if (W)
 					{
 						d_instruction_t Data_H = Instruction[InstructionIndex + 5];
 						d_instruction_t Data = (Data_H << 8) | Data_L;
@@ -771,19 +905,29 @@ struct decoder_8086
 						Out_InstructionOffset = 5;
 					}
 
-		
+
 				}
-				else 
+				else
 				{
 					const char* DecodedRM = G_EffAddressCalcRMTable[RM];
 					d_instruction_t Data_L = Instruction[InstructionIndex + 2];
 
 					if (W)
 					{
-						d_instruction_t Data_H = Instruction[InstructionIndex + 3];
-						d_instruction_t Data = (Data_H << 8) | Data_L;
-						std::printf("%s word [%s], %i  \n", OpcodeBuffer, DecodedRM, Data);
-						Out_InstructionOffset = 4;
+						// Sign Extension to pack in 8 bit but working with 16 bit registers
+						if(D_Or_S)
+						{
+							std::printf("%s byte [%s], %i  \n", OpcodeBuffer, DecodedRM, Data_L);
+							Out_InstructionOffset = 3;
+						}
+						else
+						{
+							d_instruction_t Data_H = Instruction[InstructionIndex + 3];
+							d_instruction_t Data = (Data_H << 8) | Data_L;
+							std::printf("%s word [%s], %i  \n", OpcodeBuffer, DecodedRM, Data);
+							Out_InstructionOffset = 4;
+						}
+
 
 					}
 					else
@@ -793,50 +937,41 @@ struct decoder_8086
 					}
 				}
 			}
-
 		}
-		else if((Instruction_0 & (instruction_t)enum_opcode_masks::add_immediate_to_accumulator) == (instruction_t)enum_opcode::add_immediate_to_accumulator)
+		break;
+		case decoder_8086::enum_decoder_op_mode::Immediate_From_To_Accumulator:
+
 		{
-			// TODO IMPLEMENT
-		}
-
-		
-		
-
-		if(Out_InstructionOffset == -1)
-		{
-			std::cout << "Instruction not implemented!\n";			
-#ifdef DEBUG_DECODER
-
-			if (DEBUG_DECODER)
+			d_instruction_t Data_8bit_L = Instruction_1;
+			if (W)
 			{
-				for (int i = 0; i < 4; ++i)
-				{
-					std::cout << std::bitset<8>(Instruction[InstructionIndex + i]).to_string() << std::endl;
-				}
+				d_instruction_t Data_8bit_H = Instruction[InstructionIndex + 2];
+				d_instruction_t Data = (Data_8bit_H << 8) | Data_8bit_L;
+
+				std::printf("%s ax, %i \n", OpcodeBuffer, Data);
+				Out_InstructionOffset = 3;
 			}
-
-#endif // DEBUG_DECODER
-		}
-		else 
-		{
-
-			
-#ifdef DEBUG_DECODER
-
-			if (DEBUG_DECODER) 
+			else
 			{
-				for (int i = 0; i < Out_InstructionOffset; ++i)
+				if (IsNegativeTwosComplement(Data_8bit_L))
 				{
-					std::cout << std::bitset<8>(Instruction[InstructionIndex + i]).to_string() << std::endl;
+					std::printf("%s al, -%i \n", OpcodeBuffer, GetNegativeNumber(Data_8bit_L));
 				}
-			}
+				else
+				{
+					std::printf("%s al, %i \n", OpcodeBuffer, Data_8bit_L);
+				}
 
-#endif // DEBUG_DECODER
+				Out_InstructionOffset = 2;
+			}
+		}
+
+			break;
+		default:
+			break;
 		}
 	}
 
-	
 };
 
 
