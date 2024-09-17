@@ -5,7 +5,7 @@
 #include <fstream>
 #include <bitset>
 
-#define DEBUG_DECODER 0
+#define DEBUG_DECODER  1
 
 
 // OPCODE 
@@ -41,8 +41,10 @@ enum class enum_opcode : std::uint8_t
 	sub_immediate_from_accumulator = 0b00101100, //0010110w
 	sbb_reg_mem = 0b00011000, // 000110dw
 	sbb_immediate_from_register_memory = 0b10000000, // 100000sw
-	sbb_immediate_from_accumulator = 0b00011100 // 0001110w
-
+	sbb_immediate_from_accumulator = 0b00011100, // 0001110w
+	cmp_register_memory_and_register = 0b00111000, // 001110dw
+	cmp_immediate_with_register_memory = 0b10000000, // 100000sw
+	cmp_immediate_with_accumulator = 0b00111100 // 0011110w
 };
 
 
@@ -112,7 +114,8 @@ struct decoder_8086
 		ADD,
 		ADC,
 		SUB,
-		SBB
+		SBB,
+		CMP
 	};
 
 	enum class enum_decoder_op_mode : std::uint8_t
@@ -418,7 +421,7 @@ struct decoder_8086
 		{
 			DecodeOpInstruction(Instruction, InstructionIndex, enum_decoder_op::ADC, enum_decoder_op_mode::Reg_Memory_And_Register_Either, Out_InstructionOffset);
 		}
-		else if((Instruction_0 & (instruction_t)enum_opcode_masks::operation_immediate_to_register_memory) == (instruction_t)enum_opcode::adc_immediate_to_register_memory && ((Instruction_1 & (instruction_t)(0b00010000)) == 0b00010000))
+		else if((Instruction_0 & (instruction_t)enum_opcode_masks::operation_immediate_to_register_memory) == (instruction_t)enum_opcode::adc_immediate_to_register_memory && ((Instruction_1 & (instruction_t)(0b00111000)) == 0b00010000))
 		{
 			DecodeOpInstruction(Instruction, InstructionIndex, enum_decoder_op::ADC, enum_decoder_op_mode::Immediate_From_To_Register_Memory, Out_InstructionOffset);
 		}
@@ -430,7 +433,7 @@ struct decoder_8086
 		{
 			DecodeOpInstruction(Instruction, InstructionIndex, enum_decoder_op::SUB, enum_decoder_op_mode::Reg_Memory_And_Register_Either, Out_InstructionOffset);
 		}
-		else if ((Instruction_0 & (instruction_t)enum_opcode_masks::operation_immediate_to_register_memory) == (instruction_t)enum_opcode::adc_immediate_to_register_memory && ((Instruction_1 & (instruction_t)(0b00101000)) == 0b00101000))
+		else if ((Instruction_0 & (instruction_t)enum_opcode_masks::operation_immediate_to_register_memory) == (instruction_t)enum_opcode::adc_immediate_to_register_memory && ((Instruction_1 & (instruction_t)(0b00111000)) == 0b00101000))
 		{
 			DecodeOpInstruction(Instruction, InstructionIndex, enum_decoder_op::SUB, enum_decoder_op_mode::Immediate_From_To_Register_Memory, Out_InstructionOffset);
 		}
@@ -442,7 +445,7 @@ struct decoder_8086
 		{
 			DecodeOpInstruction(Instruction, InstructionIndex, enum_decoder_op::SBB, enum_decoder_op_mode::Reg_Memory_And_Register_Either, Out_InstructionOffset);
 		}
-		else if ((Instruction_0 & (instruction_t)enum_opcode_masks::operation_immediate_to_register_memory) == (instruction_t)enum_opcode::sbb_immediate_from_register_memory && ((Instruction_1 & (instruction_t)(0b00011000)) == 0b00011000))
+		else if ((Instruction_0 & (instruction_t)enum_opcode_masks::operation_immediate_to_register_memory) == (instruction_t)enum_opcode::sbb_immediate_from_register_memory && ((Instruction_1 & (instruction_t)(0b00111000)) == 0b00011000))
 		{
 			DecodeOpInstruction(Instruction, InstructionIndex, enum_decoder_op::SBB, enum_decoder_op_mode::Immediate_From_To_Register_Memory, Out_InstructionOffset);
 		}
@@ -450,11 +453,20 @@ struct decoder_8086
 		{
 			DecodeOpInstruction(Instruction, InstructionIndex, enum_decoder_op::SBB, enum_decoder_op_mode::Immediate_From_To_Accumulator, Out_InstructionOffset);
 		}
-		else if()
+		else if((Instruction_0 & (instruction_t)enum_opcode_masks::operation_immediate_to_register_memory) == (instruction_t)enum_opcode::cmp_register_memory_and_register)
 		{
-			// TODO IMPLEMENT CMP 
-
+			DecodeOpInstruction(Instruction, InstructionIndex, enum_decoder_op::CMP, enum_decoder_op_mode::Reg_Memory_And_Register_Either, Out_InstructionOffset);
 		}
+		else if((Instruction_0 & (instruction_t)enum_opcode_masks::operation_immediate_to_register_memory) == (instruction_t)enum_opcode::cmp_immediate_with_register_memory && ((Instruction_1 & (instruction_t)(0b00111000)) == 0b00111000))
+		{
+			DecodeOpInstruction(Instruction, InstructionIndex, enum_decoder_op::CMP, enum_decoder_op_mode::Immediate_From_To_Register_Memory, Out_InstructionOffset);
+		}
+		else if ((Instruction_0 & (instruction_t)enum_opcode_masks::operation_immediate_to_accumulator) == (instruction_t)enum_opcode::cmp_immediate_with_accumulator)
+		{
+			DecodeOpInstruction(Instruction, InstructionIndex, enum_decoder_op::CMP, enum_decoder_op_mode::Immediate_From_To_Accumulator, Out_InstructionOffset);
+		}
+
+
 		if(Out_InstructionOffset == -1)
 		{
 			std::cout << "Instruction not implemented!\n";			
@@ -504,6 +516,10 @@ struct decoder_8086
 			break;
 		case decoder_8086::enum_decoder_op::SBB:
 			OpcodeBuffer = "sbb";
+			break;
+
+		case decoder_8086::enum_decoder_op::CMP:
+			OpcodeBuffer = "cmp";
 			break;
 		default:
 			break;
@@ -893,15 +909,23 @@ struct decoder_8086
 
 					if (W)
 					{
-						d_instruction_t Data_H = Instruction[InstructionIndex + 5];
-						d_instruction_t Data = (Data_H << 8) | Data_L;
-						std::printf("%s [%i], %i  \n", OpcodeBuffer, Offset_16bit, Data);
-						Out_InstructionOffset = 6;
+						if(D_Or_S)
+						{
+							std::printf("%s word [%i], %i  \n", OpcodeBuffer, Offset_16bit, Data_L);
+							Out_InstructionOffset = 5;
+						}
+						else 
+						{
+							d_instruction_t Data_H = Instruction[InstructionIndex + 5];
+							d_instruction_t Data = (Data_H << 8) | Data_L;
+							std::printf("%s word [%i], %i  \n", OpcodeBuffer, Offset_16bit, Data);
+							Out_InstructionOffset = 6;
+						}
 
 					}
 					else
 					{
-						std::printf("%s [%i], %i  \n", OpcodeBuffer, Offset_16bit, Data_L);
+						std::printf("%s byte [%i], %i  \n", OpcodeBuffer, Offset_16bit, Data_L);
 						Out_InstructionOffset = 5;
 					}
 
