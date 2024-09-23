@@ -5,26 +5,10 @@
 #include <fstream>
 #include <bitset>
 
+#include "sim86_decode.h"
 #include "sim86_memory.h"
 
 #define DEBUG_DECODER 1
-
-
-int main (int ArgCount, char** Args)
-{
-	memory* Memory = (memory*)malloc(sizeof(memory));
-
-	if(ArgCount > 1)
-	{
-		for(int ArgIndex = 0; ArgIndex < ArgCount; ArgIndex++)
-		{
-			char* FileName = Args[ArgIndex];
-			u32 BytesRead = LoadMemoryFromFile(FileName, Memory, 0);
-		}
-	}
-	
-	return 0;
-}
 
 // OPCODE 
 
@@ -1015,3 +999,39 @@ struct decoder_8086
 	}
 
 };
+
+
+static void DisAsm8086(memory* Memory, u32 DisAsmByteCount, segmented_access DisAsmStart)
+{
+	segmented_access At = DisAsmStart;
+
+	disasm_context Context = DefaultContext();
+
+	u32 Count = DisAsmByteCount;
+
+	while(Count)
+	{
+		instruction Instruction = DecodeInstruction();
+	}
+	
+}
+
+int main (int ArgCount, char** Args)
+{
+	memory* Memory = (memory*)malloc(sizeof(memory));
+
+	if(ArgCount > 1)
+	{
+		for(int ArgIndex = 0; ArgIndex < ArgCount; ArgIndex++)
+		{
+			char* FileName = Args[ArgIndex];
+			u32 BytesRead = LoadMemoryFromFile(FileName, Memory, 0);
+
+			printf("; disassembly: \n", FileName);
+			printf("bits 16\n");
+			DisAsm8086(Memory, BytesRead, {});
+		}
+	}
+	
+	return 0;
+}
