@@ -8,10 +8,13 @@
 #include "sim86_decode.h"
 #include "sim86_memory.h"
 
+
 #define DEBUG_DECODER 1
 
 // OPCODE 
 
+#pragma region OLDCODE
+/*
 enum class enum_opcode_masks : std::uint8_t
 {
 	reg_mem_to_from_reg = 0b11111000,
@@ -80,6 +83,7 @@ char G_EffAddressCalcRMTable[8][8] =
 {
 	{"bx + si"}, {"bx + di"}, {"bp + si"}, {"bp + di"}, {"si"}, {"di"}, {"bp"}, {"bx"}
 };
+
 
 
 typedef std::uint8_t instruction_t;
@@ -638,10 +642,10 @@ struct decoder_8086
 			if (Mod == (instruction_t)enum_mod::rm_no_displacement)
 			{
 
-				/* Here is important to check the S flag, as it means  sign extension.
-				This is a smart way of the encoder to tell the CPU to use a 16 bit word data for the operation,
-				most likely because we are operating on a double word register, but only encode 1 byte in the instruction... So cool.*/
-				const char* DecodedRM = G_RegStrings[W][RM];
+				// Here is important to check the S flag, as it means  sign extension.
+				//This is a smart way of the encoder to tell the CPU to use a 16 bit word data for the operation,
+				//most likely because we are operating on a double word register, but only encode 1 byte in the instruction... So cool.
+				//const char* DecodedRM = G_RegStrings[W][RM];
 
 				// check if operating in double word
 				if (W)
@@ -1001,17 +1005,33 @@ struct decoder_8086
 };
 
 
-static void DisAsm8086(memory* Memory, u32 DisAsmByteCount, segmented_access DisAsmStart)
+*/
+
+#pragma endregion OLDCODE
+
+#include "sim86_decode.h"
+
+void DisAsm8086(memory* Memory, u32 DisAsmByteCount, segmented_access DisAsmStart)
 {
 	segmented_access At = DisAsmStart;
-
 	disasm_context Context = DefaultContext();
-
 	u32 Count = DisAsmByteCount;
 
 	while(Count)
 	{
-		instruction Instruction = DecodeInstruction();
+		instruction Instruction = DecodeInstruction(&Context, Memory, &At);
+		if(Instruction.Op)
+		{
+			if(Count >= Instruction.Size)
+			{
+				Count -= Instruction.Size;
+			}
+			else
+			{
+				fprintf(stderr, "ERROR: Instruction extends outside disassembly region\n");
+				break;
+			}
+		}
 	}
 	
 }

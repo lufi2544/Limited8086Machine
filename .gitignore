@@ -1,3 +1,11 @@
 #General
-build/
+*.sln
+*.vcxproj
+*.filters
+*.user
+obj/
+x64/
+.vs/
+.idea/
+LimitedMachine/
 bin/

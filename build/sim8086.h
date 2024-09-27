@@ -7,9 +7,11 @@ enum operation_type
 {
     Op_None,
 
-#define INS(Mnemonic, ...) Op##Mnemonic,
+#define INST(Mnemonic, ...) Op_##Mnemonic,
 #define INSTALT(...)
-#include "sim86_instruction_table.inl"    
+#include "sim86_instruction_table.inl"
+
+    Op_Count,
 };
 
 
@@ -35,6 +37,14 @@ enum register_index
     Register_count
 };
 
+enum instruction_flag
+{
+    Inst_Lock = (1 << 0),
+    Inst_Rep = (1 << 1),
+    Inst_Segment = (1 << 2),
+    Inst_Wide = (1 << 3)
+};
+
 enum operand_type
 {
     Operand_None,
@@ -42,6 +52,49 @@ enum operand_type
     Operand_Memory,
     Operand_Immediate,
     Operand_RelativeImmediate
+};
+
+enum effective_address_base
+{
+    EffectiveAddress_direct,
+
+    EffectiveAddress_bx_si,
+    EffectiveAddress_bx_di,
+    EffectiveAddress_bp_si,
+    EffectiveAddress_bp_di,
+    EffectiveAddress_si,
+    EffectiveAddress_di,
+    EffectiveAddress_bp,
+    EffectiveAddress_bx,
+
+    EffectiveAddress_count
+};
+
+struct effective_address_expression
+{
+    register_index Segment;
+    effective_address_base Base;
+    s32 Displacement;
+};
+
+struct register_access
+{
+    register_index Index;
+    u8 Offset;
+    u8 Count;
+};
+
+
+struct instruction_operand
+{
+    operand_type Type;
+    union
+    {
+        effective_address_expression Address;
+        register_access Register;
+        u32 ImmediateU32;
+        s32 ImmediateS32;
+    };
 };
 
 struct instruction

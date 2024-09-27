@@ -1,14 +1,7 @@
 ﻿#pragma once
 #include "sim8086.h"
 #include "sim8086_types.h"
-
-/*
-struct instruction_format
-{
-    operation_type Op;
-    instruction_bit
-};*/
-
+#include "sim86_memory.h"
 
 enum instruction_bits_usage : u8
 {
@@ -35,6 +28,20 @@ enum instruction_bits_usage : u8
     Bits_Count
 };
 
+struct instruction_bits
+{
+    instruction_bits_usage Usage;
+    u8 BitCount;
+    u8 Shift;
+    u8 Value;
+};
+
+struct instruction_format
+{
+    operation_type Op;
+    instruction_bits Bits[16];
+};
+
 struct disasm_context
 {
     register_index DefaultSegment;
@@ -42,4 +49,6 @@ struct disasm_context
 };
 
 
-static disasm_context DefaultContext(void);
+disasm_context DefaultContext(void);
+instruction DecodeInstruction(disasm_context *Context, memory *Memory, segmented_access *At);
+instruction TryDecode(disasm_context *Context, instruction_format *Inst, memory *Memory, segmented_access At);
