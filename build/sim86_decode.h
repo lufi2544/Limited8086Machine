@@ -33,7 +33,7 @@ struct instruction_bits
     instruction_bits_usage Usage;
     u8 BitCount;
     u8 Shift;
-    u8 Value;
+    u8 BitsDecimalValue;
 };
 
 struct instruction_format

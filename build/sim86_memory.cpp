@@ -36,6 +36,7 @@ u32 GetAbsoluteAddressOf(segmented_access Access, u16 AdditionalOffset)
 
  u8 ReadMemory(memory *Memory, u32 AbsoluteAddress)
 {
+    // Simulating 1MB of memory, getting whatever byte here.
     assert(AbsoluteAddress < ArrayCount(Memory->Bytes));
     u8 Result = Memory->Bytes[AbsoluteAddress];
     return Result;

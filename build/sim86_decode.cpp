@@ -76,8 +76,9 @@ static instruction TryDecode(disasm_context *Context, instruction_format *Inst, 
 
 
     u8 BitsPendingCount = 0;
-    u8 BitsPending = 0;
+    u8 ByteRawInstruction = 0;
 
+    // Decoding all the Instruction and putting al in the Bits, so later we can translate everything
     for(u32 BitsIndex = 0; Valid && (BitsIndex <  ArrayCount(Inst->Bits)); ++BitsIndex)
     {
         instruction_bits TestBits = Inst->Bits[BitsIndex];
@@ -86,13 +87,24 @@ static instruction TryDecode(disasm_context *Context, instruction_format *Inst, 
             break;
         }
 
-        u32 ReadBits = TestBits.Value;
+        u32 BitsValue = TestBits.BitsDecimalValue;
         if(TestBits.BitCount != 0)
         {
+            // Is this the first time we attempt to read the instruction bits?
             if(BitsPendingCount == 0)
             {
                 BitsPendingCount = 8;
-                BitsPending = ReadMemory(Memory,  GetAbsoluteAddressOf(At));
+
+                // We only enter here the fist time we are reading the byte. Next times, we just read the bits and store
+                // the rest of the bits values like the W and the D.
+                
+                // This will give us the Raw value of the instruction, counting with the Op_Code and the rest of the bits
+                // in the Byte read.
+
+                // return  would be 10001011(100010dw) and then at the bottom we can see how we mask off only the OpCode.  
+                ByteRawInstruction = ReadMemory(Memory, GetAbsoluteAddressOf(At));
+
+                // Advance the byte reading count.
                 ++At.SegmentOffset;
             }
 
@@ -101,25 +113,33 @@ static instruction TryDecode(disasm_context *Context, instruction_format *Inst, 
             // byte boundary.
             assert(TestBits.BitCount <= BitsPendingCount);
 
+            
+            // Here we basically extract the part we want in the instruction, so if we have
+            // 100010dw, then we know is a move operation, but we have to remove the last 2 bits from the instruction.
+            // Same process if for the value bits like W and D
+            
             BitsPendingCount -=  TestBits.BitCount;
-            ReadBits = BitsPending;
-            ReadBits >>= BitsPendingCount;
-            ReadBits &= ~(0xff << TestBits.BitCount);
+            BitsValue = ByteRawInstruction;
+            BitsValue >>= BitsPendingCount;
+            BitsValue &= ~(0xff << TestBits.BitCount);
         }
 
         if(TestBits.Usage ==  Bits_Literal)
         {
-            Valid = Valid && (ReadBits ==  TestBits.Value);
+            // If we are decoding OpCode
+            Valid = Valid && (BitsValue ==  TestBits.BitsDecimalValue);
         }
         else
         {
-            Bits[TestBits.Usage] |= (ReadBits <<  TestBits.Shift);
+            // Plain instruction flags
+            Bits[TestBits.Usage] |= (BitsValue <<  TestBits.Shift);
             HasBits |= (1 <<  TestBits.Usage);
         }
     }
 
     if(Valid)
     {
+        // Once everything is decoded, then we just use the manual to see the conditions for parsing the instructions
         u32 Mod = Bits[Bits_MOD];
         u32 RM = Bits[Bits_RM];
         u32 W = Bits[Bits_W];

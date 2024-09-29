@@ -1039,19 +1039,17 @@ void DisAsm8086(memory* Memory, u32 DisAsmByteCount, segmented_access DisAsmStar
 int main (int ArgCount, char** Args)
 {
 	memory* Memory = (memory*)malloc(sizeof(memory));
+	
 
-	if(ArgCount > 1)
-	{
-		for(int ArgIndex = 0; ArgIndex < ArgCount; ArgIndex++)
-		{
-			char* FileName = Args[ArgIndex];
-			u32 BytesRead = LoadMemoryFromFile(FileName, Memory, 0);
+		char* FileName = "listing_0037_single_register_mov";
 
-			printf("; disassembly: \n", FileName);
-			printf("bits 16\n");
-			DisAsm8086(Memory, BytesRead, {});
-		}
-	}
+		// @BytesRead, number of bytes (instructino + Additional Instructino flags)
+		u32 BytesRead = LoadMemoryFromFile(FileName, Memory, 0);
+		printf("; disassembly: \n", FileName);
+		printf("bits 16\n");
+		DisAsm8086(Memory, BytesRead, {});
+	
+	
 	
 	return 0;
 }
