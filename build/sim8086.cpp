@@ -1010,6 +1010,8 @@ struct decoder_8086
 #pragma endregion OLDCODE
 
 #include "sim86_decode.h"
+#include "sim86_text.h"
+
 
 void DisAsm8086(memory* Memory, u32 DisAsmByteCount, segmented_access DisAsmStart)
 {
@@ -1031,6 +1033,18 @@ void DisAsm8086(memory* Memory, u32 DisAsmByteCount, segmented_access DisAsmStar
 				fprintf(stderr, "ERROR: Instruction extends outside disassembly region\n");
 				break;
 			}
+
+			UpdateContext(&Context, Instruction);
+			if(IsPrintable(Instruction))
+			{
+				PrintInstruction(Instruction, stdout);
+				printf("\n");
+			}
+		}
+		else
+		{
+			fprintf(stderr, "ERROR: Unrecognized binary in instruction stream.\n");
+			break;
 		}
 	}
 	
@@ -1041,15 +1055,13 @@ int main (int ArgCount, char** Args)
 	memory* Memory = (memory*)malloc(sizeof(memory));
 	
 
-		char* FileName = "listing_0037_single_register_mov";
+		char* FileName = "listing_0039_more_movs";
 
-		// @BytesRead, number of bytes (instructino + Additional Instructino flags)
+		// @BytesRead, number of bytes (Instruction + Additional Instruction flags)
 		u32 BytesRead = LoadMemoryFromFile(FileName, Memory, 0);
 		printf("; disassembly: \n", FileName);
 		printf("bits 16\n");
 		DisAsm8086(Memory, BytesRead, {});
-	
-	
 	
 	return 0;
 }

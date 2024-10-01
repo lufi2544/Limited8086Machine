@@ -60,7 +60,7 @@ static instruction_operand GetRegOperand(u32 IntelRegIndex, b32 Wide)
 
     instruction_operand Result = {};
     Result.Type = Operand_Register;
-    Result.Register = RegTable[IntelRegIndex & 0x7][(Wide != 0)];
+    Result.Register = RegTable[IntelRegIndex & 0x7/*(0b00000111)*/][(Wide != 0)];
 
     return Result;
 }
@@ -72,6 +72,7 @@ static instruction TryDecode(disasm_context *Context, instruction_format *Inst, 
     u32 Bits[Bits_Count] = {};
     b32 Valid = true;
 
+    // Index in the simulated memory
     u32 StartingAddress = GetAbsoluteAddressOf(At);
 
 
@@ -117,11 +118,14 @@ static instruction TryDecode(disasm_context *Context, instruction_format *Inst, 
             // Here we basically extract the part we want in the instruction, so if we have
             // 100010dw, then we know is a move operation, but we have to remove the last 2 bits from the instruction.
             // Same process if for the value bits like W and D
-            
             BitsPendingCount -=  TestBits.BitCount;
             BitsValue = ByteRawInstruction;
             BitsValue >>= BitsPendingCount;
-            BitsValue &= ~(0xff << TestBits.BitCount);
+
+            // masking off the rest of the bits in the instruction byte that we don't care about --> (100010011(10001001dw) >>=2 -->  001000100 &= ~(11111111 << 6(BitCount))) --> ~(11111111 << 6(BitCount) --> ~(11000000) --> (00111111)
+            // 001000100 &= (00111111) --> 001000100 -> I imagine is just to be sure about the bits
+            auto f = ~(0xff << TestBits.BitCount);
+            BitsValue &= f;
         }
 
         if(TestBits.Usage ==  Bits_Literal)
@@ -136,6 +140,8 @@ static instruction TryDecode(disasm_context *Context, instruction_format *Inst, 
             HasBits |= (1 <<  TestBits.Usage);
         }
     }
+
+    
 
     if(Valid)
     {
@@ -157,6 +163,7 @@ static instruction TryDecode(disasm_context *Context, instruction_format *Inst, 
         Dest.Op = Inst->Op;
         Dest.Flags = Context->AdditionalFlags;
         Dest.Address = StartingAddress;
+        auto currentAddress = GetAbsoluteAddressOf(At);
         Dest.Size = GetAbsoluteAddressOf(At) - StartingAddress;
         if(W)
         {
@@ -169,6 +176,11 @@ static instruction TryDecode(disasm_context *Context, instruction_format *Inst, 
         instruction_operand *RegOperand = &Dest.Operands[D ? 0 : 1];
         instruction_operand *ModOperand = &Dest.Operands[D ? 1 : 0];
 
+        if(ModOperand->Type == operand_type::Operand_Register || RegOperand->Type == operand_type::Operand_Register)
+        {
+            int a = 0;
+        }
+        
         if(HasBits & (1 << Bits_SR))
         {
             RegOperand->Type = Operand_Register;
@@ -249,10 +261,12 @@ static instruction TryDecode(disasm_context *Context, instruction_format *Inst, 
 }
 
 
+
 instruction DecodeInstruction(disasm_context *Context, memory *Memory, segmented_access *At)
 {
     instruction Result = { };
 
+    // Go through all the instructions to see if the bytes in the Memory buffer contains any.
     for(u32 Index = 0; Index < ArrayCount(InstructionsFormats); ++Index)
     {
         instruction_format Inst = InstructionsFormats[Index];
@@ -266,4 +280,10 @@ instruction DecodeInstruction(disasm_context *Context, memory *Memory, segmented
     }
 
     return Result;
+}
+
+void UpdateContext(disasm_context *Context, instruction Instruction)
+{
+    Context->AdditionalFlags = 0;
+    Context->DefaultSegment = Register_ds;
 }
