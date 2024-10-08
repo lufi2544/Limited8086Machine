@@ -21,15 +21,15 @@ u32 LoadMemoryFromFile(char* FileName, memory* Memory, u32 AtOffset)
     return Result;
 }
 
-u32 GetAbsoluteAddressOf(u16 SegmentBase, u16 SegmentOffset, u16 AdditionalOffset)
+u32 GetMemoryAddress_8086(u16 SegmentBase, u16 SegmentOffset, u16 AdditionalOffset)
 {
     u32 Result = (((u32)SegmentBase << 4) + (u32)(SegmentOffset + AdditionalOffset)) & MEMORY_ACCESS_MASK;
     return Result;
 }
 
-u32 GetAbsoluteAddressOf(segmented_access Access, u16 AdditionalOffset)
+u32 GetMemoryAddress_8086(segmented_access Access, u16 AdditionalOffset)
 {
-    u32 Result = GetAbsoluteAddressOf(Access.SegmentBase, Access.SegmentOffset, AdditionalOffset);
+    u32 Result = GetMemoryAddress_8086(Access.SegmentBase, Access.SegmentOffset, AdditionalOffset);
     return Result;
 }
 

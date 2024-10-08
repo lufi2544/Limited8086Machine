@@ -25,14 +25,14 @@ static u32 ParseDataValue(memory *Memory, segmented_access *Access, b32 Exists, 
     {
         if(Wide)
         {
-            u8 D0 = ReadMemory(Memory, GetAbsoluteAddressOf(*Access, 0));
-            u8 D1 =  ReadMemory(Memory, GetAbsoluteAddressOf(*Access, 1));
+            u8 D0 = ReadMemory(Memory, GetMemoryAddress_8086(*Access, 0));
+            u8 D1 =  ReadMemory(Memory, GetMemoryAddress_8086(*Access, 1));
             Result = (D1 << 8) | D0;
             Access->SegmentOffset += 2;
         }
         else
         {
-            Result = ReadMemory(Memory,  GetAbsoluteAddressOf(*Access));
+            Result = ReadMemory(Memory,  GetMemoryAddress_8086(*Access));
             if(SignExtended)
             {
                 Result = (s32)*(s8 *)&Result;
@@ -73,7 +73,7 @@ static instruction TryDecode(disasm_context *Context, instruction_format *Inst, 
     b32 Valid = true;
 
     // Index in the simulated memory
-    u32 StartingAddress = GetAbsoluteAddressOf(At);
+    u32 StartingAddress = GetMemoryAddress_8086(At);
 
 
     u8 BitsPendingCount = 0;
@@ -103,7 +103,7 @@ static instruction TryDecode(disasm_context *Context, instruction_format *Inst, 
                 // in the Byte read.
 
                 // return  would be 10001011(100010dw) and then at the bottom we can see how we mask off only the OpCode.  
-                ByteRawInstruction = ReadMemory(Memory, GetAbsoluteAddressOf(At));
+                ByteRawInstruction = ReadMemory(Memory, GetMemoryAddress_8086(At));
 
                 // Advance the byte reading count.
                 ++At.SegmentOffset;
@@ -163,8 +163,8 @@ static instruction TryDecode(disasm_context *Context, instruction_format *Inst, 
         Dest.Op = Inst->Op;
         Dest.Flags = Context->AdditionalFlags;
         Dest.Address = StartingAddress;
-        auto currentAddress = GetAbsoluteAddressOf(At);
-        Dest.Size = GetAbsoluteAddressOf(At) - StartingAddress;
+        auto currentAddress = GetMemoryAddress_8086(At);
+        Dest.Size = GetMemoryAddress_8086(At) - StartingAddress;
         if(W)
         {
             Dest.Flags |= Inst_Wide;
@@ -175,17 +175,12 @@ static instruction TryDecode(disasm_context *Context, instruction_format *Inst, 
 
         instruction_operand *RegOperand = &Dest.Operands[D ? 0 : 1];
         instruction_operand *ModOperand = &Dest.Operands[D ? 1 : 0];
-
-        if(ModOperand->Type == operand_type::Operand_Register || RegOperand->Type == operand_type::Operand_Register)
-        {
-            int a = 0;
-        }
         
         if(HasBits & (1 << Bits_SR))
         {
             RegOperand->Type = Operand_Register;
             RegOperand->Register.Index = (register_index)(Register_es + (Bits[Bits_SR] & 0x3));
-            RegOperand->Register.Count = 2;
+            RegOperand->Register.WidenessID = 2;
         }
 
         if(HasBits & (1 << Bits_REG))
@@ -247,7 +242,7 @@ static instruction TryDecode(disasm_context *Context, instruction_format *Inst, 
                 LastOperand->Type = Operand_Register;
                 LastOperand->Register.Index = Register_c;
                 LastOperand->Register.Offset = 0;
-                LastOperand->Register.Count = 1;
+                LastOperand->Register.WidenessID = 1;
             }
             else
             {
@@ -286,4 +281,35 @@ void UpdateContext(disasm_context *Context, instruction Instruction)
 {
     Context->AdditionalFlags = 0;
     Context->DefaultSegment = Register_ds;
+
+
+    // REGISTER STATES
+    // For now we have simple move instructions. When we imply 8 bit registers like dh or dl, we have to check the D flag.
+    if(Instruction.Op == operation_type::Op_mov)
+    {
+        register_index registerToChange { register_index::Register_none};
+        for(u32 i = 0; i < ArrayCount(Instruction.Operands); ++i)
+        {
+            auto operand = Instruction.Operands[i];
+            if(operand.Type == operand_type::Operand_Register)
+            {
+                // This means we are performing a  mov register, register
+                if(registerToChange != register_index::Register_none)
+                {
+                    g_Registers_Infos[registerToChange-1] = g_Registers_Infos[operand.Register.Index - 1];
+                }
+                else
+                {
+                    registerToChange = operand.Register.Index;
+                }
+            }
+            else if(operand.Type == operand_type::Operand_Immediate)
+            {
+                if(registerToChange != register_index::Register_none)
+                {
+                    g_Registers_Infos[registerToChange-1] = operand.ImmediateU32;
+                }
+            }
+        }
+    }
 }

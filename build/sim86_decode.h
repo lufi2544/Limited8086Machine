@@ -44,8 +44,8 @@ struct instruction_format
 
 struct disasm_context
 {
-    register_index DefaultSegment;
     u32 AdditionalFlags;
+    register_index DefaultSegment;
 };
 
 

@@ -1047,7 +1047,8 @@ void DisAsm8086(memory* Memory, u32 DisAsmByteCount, segmented_access DisAsmStar
 			break;
 		}
 	}
-	
+
+	PrintRegistersState(stdout);
 }
 
 int main (int ArgCount, char** Args)
@@ -1055,7 +1056,7 @@ int main (int ArgCount, char** Args)
 	memory* Memory = (memory*)malloc(sizeof(memory));
 	
 
-		char* FileName = "listing_0039_more_movs";
+		char* FileName = "listing_0044_register_movs";
 
 		// @BytesRead, number of bytes (Instruction + Additional Instruction flags)
 		u32 BytesRead = LoadMemoryFromFile(FileName, Memory, 0);

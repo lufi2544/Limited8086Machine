@@ -81,9 +81,8 @@ struct register_access
 {
     register_index Index;
     u8 Offset;
-    u8 Count;
+    u8 WidenessID; // Used to extract the register name in a table.
 };
-
 
 struct instruction_operand
 {
@@ -96,6 +95,8 @@ struct instruction_operand
         s32 ImmediateS32;
     };
 };
+
+inline u32 g_Registers_Infos[0xD]{ };
 
 struct instruction
 {

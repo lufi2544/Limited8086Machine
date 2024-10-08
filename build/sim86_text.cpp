@@ -10,6 +10,25 @@ char const *OpCodeMnemonics[] =
 #include "sim86_instruction_table.inl"
 };
 
+char const *Names[][3] =
+{
+    {"", "", ""},
+    {"al", "ah", "ax"},
+    {"bl", "bh", "bx"},
+    {"cl", "ch", "cx"},
+    {"dl", "dh", "dx"},
+    {"sp", "sp", "sp"},
+    {"bp", "bp", "bp"},
+    {"si", "si", "si"},
+    {"di", "di", "di"},
+    {"es", "es", "es"},
+    {"cs", "cs", "cs"},
+    {"ss", "ss", "ss"},
+    {"ds", "ds", "ds"},
+    {"ip", "ip", "ip"},
+    {"flags", "flags", "flags"}
+};
+
 char const *GetMnemonic(operation_type Op)
 {
     char const *Result = OpCodeMnemonics[Op];
@@ -18,27 +37,10 @@ char const *GetMnemonic(operation_type Op)
 
 char const *GetRegName(register_access Reg)
 {
-    char const *Names[][3] =
-{
-        {"", "", ""},
-        {"al", "ah", "ax"},
-        {"bl", "bh", "bx"},
-        {"cl", "ch", "cx"},
-        {"dl", "dh", "dx"},
-        {"sp", "sp", "sp"},
-        {"bp", "bp", "bp"},
-        {"si", "si", "si"},
-        {"di", "di", "di"},
-        {"es", "es", "es"},
-        {"cs", "cs", "cs"},
-        {"ss", "ss", "ss"},
-        {"ds", "ds", "ds"},
-        {"ip", "ip", "ip"},
-        {"flags", "flags", "flags"}
-};
+
     static_assert(ArrayCount(Names) == Register_count, "Text table mismatch for register_index");
     
-    char const *Result = Names[Reg.Index][(Reg.Count == 2) ? 2 : Reg.Offset&1];
+    char const *Result = Names[Reg.Index][(Reg.WidenessID == 2) ? 2 : Reg.Offset&1];
     return Result;
 }
 
@@ -70,7 +72,7 @@ char const *GetEffectiveAddressExpression(effective_address_expression Address)
 
 void PrintInstruction(instruction Instruction, FILE* Dest)
 {
-        u32 Flags = Instruction.Flags;
+    u32 Flags = Instruction.Flags;
     u32 W = Flags & Inst_Wide;
     
     if(Flags & Inst_Lock)
@@ -147,5 +149,32 @@ void PrintInstruction(instruction Instruction, FILE* Dest)
                 } break;
             }
         }
+    }
+}
+
+void PrintRegistersState(FILE* Dest)
+{
+    const char* Registers[]
+   {
+        "ax",
+        "bx", 
+        "cx",
+        "dx",
+        "sp", 
+        "bp",
+        "si", 
+        "di", 
+        "es", 
+        "cs", 
+        "ss", 
+        "ds", 
+        "ip"
+    };
+    
+    for(u32 i = 0; i< ArrayCount(g_Registers_Infos); ++i)
+    {
+        const char* RegisterName = Registers[i];
+        fprintf(Dest, "Register: %s: %i", RegisterName, g_Registers_Infos[i]);
+        printf("\n");
     }
 }
