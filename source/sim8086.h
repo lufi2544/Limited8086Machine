@@ -6,11 +6,11 @@
 enum operation_type
 {
     Op_None,
-
+	
 #define INST(Mnemonic, ...) Op_##Mnemonic,
 #define INSTALT(...)
 #include "sim86_instruction_table.inl"
-
+	
     Op_Count,
 };
 
@@ -18,7 +18,7 @@ enum operation_type
 enum register_index
 {
     Register_none,
-
+	
     Register_a,
     Register_b,
     Register_c,
@@ -33,8 +33,22 @@ enum register_index
     Register_ds,
     Register_ip,
     Register_flags,
-
+	
     Register_count
+};
+
+enum register_flags_fields : u8
+{
+	Flag_carry,
+	Flag_parity,
+	Flag_auxiliary_carry,
+	Flag_zero,
+	Flag_sign,
+	Flag_overflow,
+	Flag_interrupt_enable,
+	Flag_direction,
+	Flag_Trap,
+	Flag_Num,
 };
 
 enum instruction_flag
@@ -57,7 +71,7 @@ enum operand_type
 enum effective_address_base
 {
     EffectiveAddress_direct,
-
+	
     EffectiveAddress_bx_si,
     EffectiveAddress_bx_di,
     EffectiveAddress_bp_si,
@@ -66,7 +80,7 @@ enum effective_address_base
     EffectiveAddress_di,
     EffectiveAddress_bp,
     EffectiveAddress_bx,
-
+	
     EffectiveAddress_count
 };
 
@@ -102,9 +116,9 @@ struct instruction
 {
     u32 Address;
     u32 Size;
-
+	
     operation_type Op;
     u32 Flags;
-
+	
     instruction_operand Operands[2];
 };

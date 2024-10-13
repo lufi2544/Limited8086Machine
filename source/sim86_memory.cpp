@@ -3,7 +3,7 @@
 u32 LoadMemoryFromFile(char* FileName, memory* Memory, u32 AtOffset)
 {
     u32 Result = 0;
-
+    
     if(AtOffset < ArrayCount(Memory->Bytes))
     {
         FILE *File = {};
@@ -16,9 +16,9 @@ u32 LoadMemoryFromFile(char* FileName, memory* Memory, u32 AtOffset)
     else
     {
         fprintf(stderr, "ERROR: Unable to open the file %s\n", FileName);
-    }
-
-    return Result;
+	}
+	
+	return Result;
 }
 
 u32 GetMemoryAddress_8086(u16 SegmentBase, u16 SegmentOffset, u16 AdditionalOffset)
@@ -33,11 +33,12 @@ u32 GetMemoryAddress_8086(segmented_access Access, u16 AdditionalOffset)
     return Result;
 }
 
- u8 ReadMemory(memory *Memory, u32 AbsoluteAddress)
+u8 ReadMemory(memory *Memory, u32 AbsoluteAddress)
 {
     // Simulating 1MB of memory, getting whatever byte here.
     assert(AbsoluteAddress < ArrayCount(Memory->Bytes));
     u8 Result = Memory->Bytes[AbsoluteAddress];
     return Result;
 }
+
 

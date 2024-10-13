@@ -12,7 +12,7 @@ enum instruction_bits_usage : u8
     Bits_SR,
     Bits_Disp,
     Bits_Data,
-
+	
     Bits_HasDisp,
     Bits_DispAlwaysW,
     Bits_HasData,
@@ -24,7 +24,7 @@ enum instruction_bits_usage : u8
     Bits_W,
     Bits_V,
     Bits_Z,
-        
+	
     Bits_Count
 };
 
@@ -53,3 +53,4 @@ disasm_context DefaultContext(void);
 void UpdateContext(disasm_context *Context, instruction Instruction);
 instruction DecodeInstruction(disasm_context *Context, memory *Memory, segmented_access *At);
 instruction TryDecode(disasm_context *Context, instruction_format *Inst, memory *Memory, segmented_access At);
+

@@ -1013,12 +1013,17 @@ struct decoder_8086
 #include "sim86_text.h"
 
 
+u32 SignedToTwosComplement(u16 Number)
+{
+	u16 a = ((~Number + 1));
+	return a;
+}
+
 void DisAsm8086(memory* Memory, u32 DisAsmByteCount, segmented_access DisAsmStart)
 {
 	segmented_access At = DisAsmStart;
 	disasm_context Context = DefaultContext();
 	u32 Count = DisAsmByteCount;
-
 	while(Count)
 	{
 		instruction Instruction = DecodeInstruction(&Context, Memory, &At);
@@ -1033,7 +1038,7 @@ void DisAsm8086(memory* Memory, u32 DisAsmByteCount, segmented_access DisAsmStar
 				fprintf(stderr, "ERROR: Instruction extends outside disassembly region\n");
 				break;
 			}
-
+            
 			UpdateContext(&Context, Instruction);
 			if(IsPrintable(Instruction))
 			{
@@ -1047,7 +1052,7 @@ void DisAsm8086(memory* Memory, u32 DisAsmByteCount, segmented_access DisAsmStar
 			break;
 		}
 	}
-
+    
 	PrintRegistersState(stdout);
 }
 
@@ -1055,14 +1060,14 @@ int main (int ArgCount, char** Args)
 {
 	memory* Memory = (memory*)malloc(sizeof(memory));
 	
-
-		char* FileName = "listing_0044_register_movs";
-
-		// @BytesRead, number of bytes (Instruction + Additional Instruction flags)
-		u32 BytesRead = LoadMemoryFromFile(FileName, Memory, 0);
-		printf("; disassembly: \n", FileName);
-		printf("bits 16\n");
-		DisAsm8086(Memory, BytesRead, {});
+    
+    char* FileName = "listing_0046_add_sub_cmp";
+    
+    // @BytesRead, number of bytes (Instruction + Additional Instruction flags)
+    u32 BytesRead = LoadMemoryFromFile(FileName, Memory, 0);
+    printf("; disassembly: \n", FileName);
+    printf("bits 16\n");
+    DisAsm8086(Memory, BytesRead, {});
 	
 	return 0;
 }

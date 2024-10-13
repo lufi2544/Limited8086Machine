@@ -4,7 +4,7 @@
 char const *OpCodeMnemonics[] =
 {
     "",
-
+	
 #define INST(Mnemonic, ...) #Mnemonic,
 #define INSTALT(...)
 #include "sim86_instruction_table.inl"
@@ -37,7 +37,7 @@ char const *GetMnemonic(operation_type Op)
 
 char const *GetRegName(register_access Reg)
 {
-
+	
     static_assert(ArrayCount(Names) == Register_count, "Text table mismatch for register_index");
     
     char const *Result = Names[Reg.Index][(Reg.WidenessID == 2) ? 2 : Reg.Offset&1];
@@ -114,12 +114,13 @@ void PrintInstruction(instruction Instruction, FILE* Dest)
                 case Operand_Register:
                 {
                     fprintf(Dest, "%s", GetRegName(Operand.Register));
-                } break;
+                }
+                break;
                 
                 case Operand_Memory:
                 {
                     effective_address_expression Address = Operand.Address;
-
+					
                     if(Instruction.Operands[0].Type != Operand_Register)
                     {
                         fprintf(Dest, "%s ", W ? "word" : "byte");
@@ -152,10 +153,26 @@ void PrintInstruction(instruction Instruction, FILE* Dest)
     }
 }
 
+
+s32 TwosComplementToSigned(u32 Number)
+{
+    if(Number & (1 << 15))
+    {
+        s32 a = -((~(Number) + 1) & 0xFFFF);
+        return a;
+    }
+    else
+    {
+        return Number;
+    }
+}
+
+
+
 void PrintRegistersState(FILE* Dest)
 {
     const char* Registers[]
-   {
+	{
         "ax",
         "bx", 
         "cx",
@@ -174,7 +191,8 @@ void PrintRegistersState(FILE* Dest)
     for(u32 i = 0; i< ArrayCount(g_Registers_Infos); ++i)
     {
         const char* RegisterName = Registers[i];
-        fprintf(Dest, "Register: %s: %i", RegisterName, g_Registers_Infos[i]);
+        fprintf(Dest, "Register: %s: %i", RegisterName, TwosComplementToSigned(g_Registers_Infos[i]));
         printf("\n");
     }
 }
+

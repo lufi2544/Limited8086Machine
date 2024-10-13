@@ -41,6 +41,21 @@ INSTALT(mov, {B(1010000), W, ADDR, ImpREG(0), ImpMOD(0), ImpRM(0b110), ImpD(1)})
 INSTALT(mov, {B(1010001), W, ADDR, ImpREG(0), ImpMOD(0), ImpRM(0b110), ImpD(0)})
 INSTALT(mov, {B(100011), D, B(0), MOD, B(0), SR, RM}) // NOTE(casey): This collapses 2 entries in the 8086 table by adding an explicit D bit
 
+INST(add, {B(000000), D, W, MOD, REG, RM}) // Reg/memory and register to either
+INSTALT(add, {B(100000),S, W, MOD, B(000), RM, DATA, DATA_IF_W}) // Immediate from register/memory
+INSTALT(add, {B(0000010), W, DATA, DATA_IF_W, ImpREG(0), ImpD(1)}) // Immediate to AX. We specify the reg here manually, so we don't have to hardcode it, in this case is the AX.
+
+INST(sub, {B(001010), D, W, MOD, REG, RM}) // Reg/memory and register to either
+INSTALT(sub, {B(100000), S, W, MOD, B(101), RM, DATA, DATA_IF_W}) // Immediate from register/memory
+INSTALT(sub, {B(0001110), W, DATA, DATA_IF_W, ImpREG(0), ImpD(1)}) // Immediate to AX
+
+INST(cmp, { B(001110), D, W, MOD, REG, RM })
+INSTALT(cmp, { B(100000), S, W, MOD, B(111), RM, DATA, DATA_IF_W })
+INSTALT(cmp, { B(0011110), W, DATA, DATA_IF_W, ImpREG(0), ImpD(1) }) // TODO(casey): The manual table suggests this data is only 8-bit, but wouldn't it be 16 as well?
+
+
+INST(cmps, { B(1010011), W })
+
 #undef INST
 #undef INSTALT
 
