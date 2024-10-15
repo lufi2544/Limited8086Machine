@@ -110,7 +110,7 @@ struct instruction_operand
     };
 };
 
-inline u32 g_Registers_Infos[0xD]{ };
+inline u32 g_Register_Infos[0xD]{ };
 
 struct instruction
 {

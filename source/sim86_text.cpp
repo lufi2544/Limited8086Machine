@@ -153,7 +153,6 @@ void PrintInstruction(instruction Instruction, FILE* Dest)
     }
 }
 
-
 s32 TwosComplementToSigned(u32 Number)
 {
     if(Number & (1 << 15))
@@ -188,10 +187,10 @@ void PrintRegistersState(FILE* Dest)
         "ip"
     };
     
-    for(u32 i = 0; i< ArrayCount(g_Registers_Infos); ++i)
+    for(u32 i = 0; i< ArrayCount(g_Register_Infos); ++i)
     {
         const char* RegisterName = Registers[i];
-        fprintf(Dest, "Register: %s: %i", RegisterName, TwosComplementToSigned(g_Registers_Infos[i]));
+        fprintf(Dest, "Register: %s: %i", RegisterName, TwosComplementToSigned(g_Register_Infos[i]));
         printf("\n");
     }
 }

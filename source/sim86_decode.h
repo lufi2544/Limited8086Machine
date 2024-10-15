@@ -50,7 +50,13 @@ struct disasm_context
 
 
 disasm_context DefaultContext(void);
-void UpdateContext(disasm_context *Context, instruction Instruction);
+
+void
+UpdateContext(disasm_context *Context, instruction Instruction);
+
+void
+UpdateFlagsRegister(instruction Instruction);
+
 instruction DecodeInstruction(disasm_context *Context, memory *Memory, segmented_access *At);
 instruction TryDecode(disasm_context *Context, instruction_format *Inst, memory *Memory, segmented_access At);
 

@@ -313,168 +313,97 @@ UpdateContext(disasm_context *Context, instruction Instruction)
     // For now we have simple move instructions. When we imply 8 bit registers like dh or dl, we have to check the D flag.
 	
 	// TODO REFACTOR THIS MESS.
-	u32 Prev_Register_Flags = g_Registers_Infos[register_index::Register_flags - 1];
-	
+	u32 Prev_Register_Flags = g_Register_Infos[register_index::Register_flags - 1];
     register_index DestinationRegister = register_index::Register_none;
-	s32 DestinationRegister_PostChange_Value = 0;
+	s32 DestinationRegister_PreChange_Value = 0;
 	bool bShouldAffectFlags = false;
+	
     for(u32 i = 0; i < ArrayCount(Instruction.Operands); ++i)
     {
+		
         instruction_operand Operand = Instruction.Operands[i];
-        if(Instruction.Op == operation_type::Op_mov)
-        {
-            // MOV
-            
-            if(Operand.Type == operand_type::Operand_Register)
-            {
-                // TODO Should we check the D bit here?
-                // This means we are performing a  mov register, register
-                if(DestinationRegister != register_index::Register_none)
-                {
-                    g_Registers_Infos[DestinationRegister - 1] = g_Registers_Infos[Operand.Register.Index - 1];
-                }
-                else
-                {
-                    DestinationRegister = Operand.Register.Index;
-                }
-            }
-            else if(Operand.Type == operand_type::Operand_Immediate)
-            {
-                if(DestinationRegister != register_index::Register_none)
-                {
-                    g_Registers_Infos[DestinationRegister - 1] = Operand.ImmediateU32;
-                }
-            }
-        }
-        else if(Instruction.Op == operation_type::Op_add)
-        {
-            // ADD
-            
-            if(Operand.Type == operand_type::Operand_Register)
-            {
-                if(DestinationRegister == register_index::Register_none)
-                {
-                    DestinationRegister = Operand.Register.Index;
-					DestinationRegister_PostChange_Value = g_Registers_Infos[DestinationRegister - 1];
-					bShouldAffectFlags = true;
-                }
-                else
-                {
-                    g_Registers_Infos[DestinationRegister - 1] += g_Registers_Infos[Operand.Register.Index - 1];
-                }
-            }
-            else if(Operand.Type == operand_type::Operand_Immediate)
-            {
-                if(DestinationRegister != register_index::Register_none)
-                {
-                    g_Registers_Infos[DestinationRegister - 1] += Operand.ImmediateS32;
-                }
-            }
-            
-        }
-        else if(Instruction.Op == operation_type::Op_sub)
-        {
-            // SUB
-            
-            if(Operand.Type == operand_type::Operand_Register)
-            {
-                if(DestinationRegister == register_index::Register_none)
-                {
-                    DestinationRegister = Operand.Register.Index;
-					DestinationRegister_PostChange_Value = g_Registers_Infos[DestinationRegister - 1];
-					bShouldAffectFlags = true;
-                }
-                else
-                {
-                    g_Registers_Infos[DestinationRegister - 1] -= g_Registers_Infos[Operand.Register.Index - 1];
-                }
-            }
-            else if(Operand.Type == operand_type::Operand_Immediate)
-            {
-                if(DestinationRegister != register_index::Register_none)
-                {
-                    g_Registers_Infos[DestinationRegister - 1] -= Operand.ImmediateS32;
-					
-					u32 Comparison_Result = Operand.ImmediateS32 - DestinationRegister_PostChange_Value;
-					
-					if(Comparison_Result == 0)
-					{
-						// Zero
-						g_Registers_Infos[register_index::Register_flags - 1] |= ( 1 << register_flags_fields::Flag_zero);
-					}
-					else if(IsNegative(Comparison_Result))
-					{
-						// Is smaller
-						g_Registers_Infos[register_index::Register_flags - 1] |= ( 1 << register_flags_fields::Flag_sign);
-					}
-					else
-					{
-						// Greater
-						g_Registers_Infos[register_index::Register_flags - 1] &= (~( 1 << register_flags_fields::Flag_sign));
-					}
-                }
-            }
-        }
-		else if(Instruction.Op == operation_type::Op_cmp)
+		
+		if(DestinationRegister == register_index::Register_none)
 		{
 			if(Operand.Type == operand_type::Operand_Register)
 			{
-				if(DestinationRegister == register_index::Register_none)
+				DestinationRegister = Operand.Register.Index;
+				
+				if(Instruction.Op != operation_type::Op_mov)
 				{
 					bShouldAffectFlags = true;
-					DestinationRegister = Operand.Register.Index;
-					DestinationRegister_PostChange_Value = g_Registers_Infos[DestinationRegister - 1];
 				}
-				else
-				{
-					s32 Register_To_Compare_Value = g_Registers_Infos[Operand.Register.Index - 1];
-					u32 Comparison_Result = Register_To_Compare_Value - DestinationRegister_PostChange_Value;
-					
-					if(Comparison_Result == 0)
-					{
-						// Zero
-						g_Registers_Infos[register_index::Register_flags - 1] |= ( 1 << register_flags_fields::Flag_zero);
-					}
-					else if(IsNegative(Comparison_Result))
-					{
-						// Is smaller
-						g_Registers_Infos[register_index::Register_flags - 1] |= ( 1 << register_flags_fields::Flag_sign);
-					}
-					else
-					{
-						// Greater
-						g_Registers_Infos[register_index::Register_flags - 1] &= (~( 1 << register_flags_fields::Flag_sign));
-					}
-					
-				}
+				
+				DestinationRegister_PreChange_Value = g_Register_Infos[DestinationRegister - 1];
+				continue;
 			}
 		}
 		
-    }
-	
-	// Analize for setting the Flags Register
-	if(DestinationRegister != register_index::Register_none)
-	{
-		u32& Register_Flags = g_Registers_Infos[register_index::Register_flags - 1];
 		
-		// FLAGS SETTING
+		s32 Operation_Value_To_Use = 0;
+		if(Operand.Type == operand_type::Operand_Register)
+		{
+			Operation_Value_To_Use = g_Register_Infos[Operand.Register.Index - 1];
+		}
+		else if(Operand.Type == operand_type::Operand_Immediate)
+		{
+			Operation_Value_To_Use = Operand.ImmediateS32;
+		}
+		
+		
+		if(Instruction.Op == operation_type::Op_mov)
+		{
+			
+			// MOV
+			g_Register_Infos[DestinationRegister - 1] = Operation_Value_To_Use;
+		}
+		else if(Instruction.Op == operation_type::Op_add)
+		{
+			// ADD
+			g_Register_Infos[DestinationRegister - 1] += Operation_Value_To_Use;
+		}
+		else if(Instruction.Op == operation_type::Op_sub)
+		{
+			// SUB
+			g_Register_Infos[DestinationRegister - 1] -= Operation_Value_To_Use;
+		}
+		
+		
+		u32& Current_Register_Flags = g_Register_Infos[register_index::Register_flags - 1];
 		if(bShouldAffectFlags)
 		{
-			// Negative Flag
-			u32 Mask_Sign = 1 << (u8)register_flags_fields::Flag_sign;
-			if(IsNegative(DestinationRegister_PostChange_Value))
+			u32 Value_To_Compared_To = Operand.ImmediateS32;
+			if(Operand.Type == operand_type::Operand_Register)
 			{
-				Register_Flags |= Mask_Sign; 
+				Value_To_Compared_To = g_Register_Infos[Operand.Register.Index - 1];
+			}
+			
+			u32 Value_To_Evaluate = g_Register_Infos[DestinationRegister - 1];
+			if(Instruction.Op == operation_type::Op_cmp)
+			{
+				Value_To_Evaluate = DestinationRegister_PreChange_Value - Value_To_Compared_To;
+			}
+			
+			if(Value_To_Evaluate == 0)
+			{
+				// Zero
+				Current_Register_Flags |= ( 1 << static_cast<u8>(register_flags_fields::Flag_zero));
+			}
+			else if(IsNegative(Value_To_Evaluate))
+			{
+				// Is smaller
+				Current_Register_Flags |= ( 1 << register_flags_fields::Flag_sign);
 			}
 			else
 			{
-				Register_Flags &= (~(Mask_Sign));
+				// Greater
+				Current_Register_Flags &= (~( 1 << register_flags_fields::Flag_sign));
 			}
 		}
 		
 		
 		// PRINT FLAGS CHANGE
-		if(Register_Flags != Prev_Register_Flags)
+		if(Current_Register_Flags != Prev_Register_Flags)
 		{
 			std::printf("Flags ");
 			
@@ -494,7 +423,7 @@ UpdateContext(disasm_context *Context, instruction Instruction)
 			std::printf(" --> ");
 			for(u8 Flag_Index = 0; Flag_Index < register_flags_fields::Flag_Num; ++Flag_Index)
 			{
-				if(Register_Flags & (1 << Flag_Index))
+				if(Current_Register_Flags & (1 << Flag_Index))
 				{
 					if(const char* FlagName = GetFlagRegisterName(Flag_Index))
 					{
