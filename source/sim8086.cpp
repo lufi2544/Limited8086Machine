@@ -1040,6 +1040,8 @@ void DisAsm8086(memory* Memory, u32 DisAsmByteCount, segmented_access DisAsmStar
 			}
             
 			UpdateContext(&Context, Instruction);
+			UpdateRegisterValues(&Context, Instruction, &At);
+			
 			if(IsPrintable(Instruction))
 			{
 				PrintInstruction(Instruction, stdout);
@@ -1061,7 +1063,7 @@ int main (int ArgCount, char** Args)
 	memory* Memory = (memory*)malloc(sizeof(memory));
 	
     
-    char* FileName = "listing_0046_add_sub_cmp";
+    char* FileName = "listing_0048_ip_register";
     
     // @BytesRead, number of bytes (Instruction + Additional Instruction flags)
     u32 BytesRead = LoadMemoryFromFile(FileName, Memory, 0);

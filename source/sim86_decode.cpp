@@ -302,21 +302,27 @@ GetFlagRegisterName(u8 Flag)
 	return nullptr;
 }
 
-
 void
 UpdateContext(disasm_context *Context, instruction Instruction)
 {
     Context->AdditionalFlags = 0;
     Context->DefaultSegment = Register_ds;
-	
-    // REGISTER STATES
+}
+
+void
+UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented_access *At)
+{
+	// REGISTER STATES
     // For now we have simple move instructions. When we imply 8 bit registers like dh or dl, we have to check the D flag.
 	
-	// TODO REFACTOR THIS MESS.
 	u32 Prev_Register_Flags = g_Register_Infos[register_index::Register_flags - 1];
     register_index DestinationRegister = register_index::Register_none;
 	s32 DestinationRegister_PreChange_Value = 0;
 	bool bShouldAffectFlags = false;
+	
+	// UPDATE THE IP(instruction pointer register)
+	u32& Register_IP_Ref = g_Register_Infos[register_index::Register_ip - 1];
+	Register_IP_Ref += (At->SegmentOffset - Register_IP_Ref);
 	
     for(u32 i = 0; i < ArrayCount(Instruction.Operands); ++i)
     {
@@ -328,12 +334,7 @@ UpdateContext(disasm_context *Context, instruction Instruction)
 			if(Operand.Type == operand_type::Operand_Register)
 			{
 				DestinationRegister = Operand.Register.Index;
-				
-				if(Instruction.Op != operation_type::Op_mov)
-				{
-					bShouldAffectFlags = true;
-				}
-				
+				bShouldAffectFlags = Instruction.Op != operation_type::Op_mov;
 				DestinationRegister_PreChange_Value = g_Register_Infos[DestinationRegister - 1];
 				continue;
 			}
@@ -435,10 +436,7 @@ UpdateContext(disasm_context *Context, instruction Instruction)
 			
 			std::printf("\n");
 		}
-		
-		
-		
-		
 	}
+	
 	
 }

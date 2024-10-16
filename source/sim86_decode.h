@@ -49,10 +49,14 @@ struct disasm_context
 };
 
 
-disasm_context DefaultContext(void);
+disasm_context
+DefaultContext(void);
 
 void
 UpdateContext(disasm_context *Context, instruction Instruction);
+
+void 
+UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented_access *At);
 
 void
 UpdateFlagsRegister(instruction Instruction);
