@@ -31,7 +31,7 @@ char const *Names[][3] =
 
 char const *GetMnemonic(operation_type Op)
 {
-    char const *Result = OpCodeMnemonics[Op];
+	char const *Result = OpCodeMnemonics[Op];
     return Result;
 }
 

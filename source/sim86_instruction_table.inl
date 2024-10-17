@@ -53,6 +53,8 @@ INST(cmp, { B(001110), D, W, MOD, REG, RM })
 INSTALT(cmp, { B(100000), S, W, MOD, B(111), RM, DATA, DATA_IF_W })
 INSTALT(cmp, { B(0011110), W, DATA, DATA_IF_W, ImpREG(0), ImpD(1) }) // TODO(casey): The manual table suggests this data is only 8-bit, but wouldn't it be 16 as well?
 
+INST(jne, {B(01110101), DISP, Flags(Bits_RelJMPDisp)})
+
 
 INST(cmps, { B(1010011), W })
 

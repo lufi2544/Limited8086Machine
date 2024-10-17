@@ -320,16 +320,36 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 	s32 DestinationRegister_PreChange_Value = 0;
 	bool bShouldAffectFlags = false;
 	
-	// UPDATE THE IP(instruction pointer register)
+	
 	u32& Register_IP_Ref = g_Register_Infos[register_index::Register_ip - 1];
-	Register_IP_Ref += (At->SegmentOffset - Register_IP_Ref);
+	u32 IP_Instruction_Offset = (At->SegmentOffset - Register_IP_Ref);
+	s32 IP_Offset_To_Add = IP_Instruction_Offset;
+	
+	// AT THE END
+	
 	
     for(u32 i = 0; i < ArrayCount(Instruction.Operands); ++i)
     {
 		
         instruction_operand Operand = Instruction.Operands[i];
+		if(Operand.Type == operand_type::Operand_None)
+		{
+			continue;
+		}
 		
-		if(DestinationRegister == register_index::Register_none)
+		// Checking the jump instructions first
+		if(Instruction.Op == operation_type::Op_jne)
+		{
+			//@juanes: TODO ORGANIC WAY OF CHECKING FLAGS REGISTER
+			if(!(Prev_Register_Flags & (1 << register_flags_fields::Flag_zero)))
+			{
+				At->SegmentOffset += Operand.ImmediateS32;
+				At->SegmentOffset -= IP_Instruction_Offset;
+				IP_Offset_To_Add = Operand.ImmediateS32;
+				continue;
+			}
+		}
+		else if(DestinationRegister == register_index::Register_none)
 		{
 			if(Operand.Type == operand_type::Operand_Register)
 			{
@@ -439,4 +459,6 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 	}
 	
 	
+	// UPDATING THE IP REGISTER
+	Register_IP_Ref += IP_Offset_To_Add;
 }
