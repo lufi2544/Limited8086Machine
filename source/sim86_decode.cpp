@@ -309,6 +309,13 @@ UpdateContext(disasm_context *Context, instruction Instruction)
     Context->DefaultSegment = Register_ds;
 }
 
+
+void PerformInstructionJump(segmented_access *At, u32 InstructionSize, s32 JumpOffset)
+{
+	At->SegmentOffset += JumpOffset;
+	At->SegmentOffset -= InstructionSize;
+}
+
 void
 UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented_access *At)
 {
@@ -322,8 +329,8 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 	
 	
 	u32& Register_IP_Ref = g_Register_Infos[register_index::Register_ip - 1];
-	u32 IP_Instruction_Offset = (At->SegmentOffset - Register_IP_Ref);
-	s32 IP_Offset_To_Add = IP_Instruction_Offset;
+	u32 InstructionSize = (At->SegmentOffset - Register_IP_Ref);
+	s32 IP_Offset_To_Add = InstructionSize;
 	
 	// AT THE END
 	
@@ -340,13 +347,30 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 		// Checking the jump instructions first
 		if(Instruction.Op == operation_type::Op_jne)
 		{
-			//@juanes: TODO ORGANIC WAY OF CHECKING FLAGS REGISTER
+			//@juanes: TODO ORGANIC WAY OF CHECKING FLAGS REGISTER AND ADDING IP_Offset_To_Add.
 			if(!(Prev_Register_Flags & (1 << register_flags_fields::Flag_zero)))
 			{
-				At->SegmentOffset += Operand.ImmediateS32;
-				At->SegmentOffset -= IP_Instruction_Offset;
+				PerformInstructionJump(At, InstructionSize, Operand.ImmediateS32);
 				IP_Offset_To_Add = Operand.ImmediateS32;
 				continue;
+			}
+		}
+		else if(Instruction.Op == operation_type::Op_je)
+		{
+			if(Prev_Register_Flags & (1 << register_flags_fields::Flag_zero))
+			{
+				PerformInstructionJump(At, InstructionSize, Operand.ImmediateS32);
+				IP_Offset_To_Add = Operand.ImmediateS32;
+				continue;
+			}
+			
+		}
+		else if(Instruction.Op == operation_type::Op_jb)
+		{
+			if(Prev_Register_Flags & (1 << register_flags_fields::Flag_sign))
+			{
+				PerformInstructionJump(At, InstructionSize, Operand.ImmediateS32);
+				IP_Offset_To_Add = Operand.ImmediateS32;
 			}
 		}
 		else if(DestinationRegister == register_index::Register_none)

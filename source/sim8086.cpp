@@ -1039,15 +1039,12 @@ void DisAsm8086(memory* Memory, u32 DisAsmByteCount, segmented_access DisAsmStar
 				break;
 			}
             
+			s32 PreviousSegmentedAccessOffset = At.SegmentOffset;
 			UpdateContext(&Context, Instruction);
-			
-			s32 PreviousOffset = At.SegmentOffset;
-			
-			// TODO THE COUNT IS 0, when jumping in the IP, we have to make sure it adds up the the new offset.
 			UpdateRegisterValues(&Context, Instruction, &At);
 			
 			// Updating the bytes to read, depending on the At segmeneted acces, due to jump instructions modifying the IP.
-			Count += (At.SegmentOffset - PreviousOffset);
+			Count += (At.SegmentOffset - PreviousSegmentedAccessOffset);
 			
 			if(IsPrintable(Instruction))
 			{
@@ -1070,7 +1067,7 @@ int main (int ArgCount, char** Args)
 	memory* Memory = (memory*)malloc(sizeof(memory));
 	
     
-    char* FileName = "listing_0049_conditional_jumps";
+    char* FileName = "listing_0050_challenge_jumps";
     
     // @BytesRead, number of bytes (Instruction + Additional Instruction flags)
     u32 BytesRead = LoadMemoryFromFile(FileName, Memory, 0);

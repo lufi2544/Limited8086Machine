@@ -53,7 +53,9 @@ INST(cmp, { B(001110), D, W, MOD, REG, RM })
 INSTALT(cmp, { B(100000), S, W, MOD, B(111), RM, DATA, DATA_IF_W })
 INSTALT(cmp, { B(0011110), W, DATA, DATA_IF_W, ImpREG(0), ImpD(1) }) // TODO(casey): The manual table suggests this data is only 8-bit, but wouldn't it be 16 as well?
 
-INST(jne, {B(01110101), DISP, Flags(Bits_RelJMPDisp)})
+INST(jne, {B(01110101), DISP, Flags(Bits_RelJMPDisp)}) // Jump not equal to 0
+INST(je, {B(01110100), DISP, Flags(Bits_RelJMPDisp)}) // jump equal to 0
+INST(jb, {B(01110010), DISP, Flags(Bits_RelJMPDisp)}) // Jump on below/not above or equal
 
 
 INST(cmps, { B(1010011), W })
