@@ -56,6 +56,8 @@ INSTALT(cmp, { B(0011110), W, DATA, DATA_IF_W, ImpREG(0), ImpD(1) }) // TODO(cas
 INST(jne, {B(01110101), DISP, Flags(Bits_RelJMPDisp)}) // Jump not equal to 0
 INST(je, {B(01110100), DISP, Flags(Bits_RelJMPDisp)}) // jump equal to 0
 INST(jb, {B(01110010), DISP, Flags(Bits_RelJMPDisp)}) // Jump on below/not above or equal
+INST(jp, {B(01111010), DISP, Flags(Bits_RelJMPDisp)}) // Jump on Parity
+INST(loopnz, {B(11100000), DISP, Flags(Bits_RelJMPDisp)}) // Loop on Zero flag not set and CX != 0.
 
 
 INST(cmps, { B(1010011), W })

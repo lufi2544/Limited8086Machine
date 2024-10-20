@@ -298,6 +298,10 @@ GetFlagRegisterName(u8 Flag)
 	{
 		return "Z";
 	}
+	else if(Casted_Flag == register_flags_fields::Flag_parity)
+	{
+		return "P";
+	}
 	
 	return nullptr;
 }
@@ -332,9 +336,6 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 	u32 InstructionSize = (At->SegmentOffset - Register_IP_Ref);
 	s32 IP_Offset_To_Add = InstructionSize;
 	
-	// AT THE END
-	
-	
     for(u32 i = 0; i < ArrayCount(Instruction.Operands); ++i)
     {
 		
@@ -344,11 +345,15 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 			continue;
 		}
 		
+		bool bZeroFlagSet = Prev_Register_Flags & (1 << register_flags_fields::Flag_zero);
+		bool bSignFlagSet = Prev_Register_Flags & (1 << register_flags_fields::Flag_sign);
+		bool bParityFlagSet = Prev_Register_Flags & (1 << register_flags_fields::Flag_parity);
+		
 		// Checking the jump instructions first
 		if(Instruction.Op == operation_type::Op_jne)
 		{
 			//@juanes: TODO ORGANIC WAY OF CHECKING FLAGS REGISTER AND ADDING IP_Offset_To_Add.
-			if(!(Prev_Register_Flags & (1 << register_flags_fields::Flag_zero)))
+			if(!bZeroFlagSet)
 			{
 				PerformInstructionJump(At, InstructionSize, Operand.ImmediateS32);
 				IP_Offset_To_Add = Operand.ImmediateS32;
@@ -357,7 +362,7 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 		}
 		else if(Instruction.Op == operation_type::Op_je)
 		{
-			if(Prev_Register_Flags & (1 << register_flags_fields::Flag_zero))
+			if(bZeroFlagSet)
 			{
 				PerformInstructionJump(At, InstructionSize, Operand.ImmediateS32);
 				IP_Offset_To_Add = Operand.ImmediateS32;
@@ -367,10 +372,34 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 		}
 		else if(Instruction.Op == operation_type::Op_jb)
 		{
-			if(Prev_Register_Flags & (1 << register_flags_fields::Flag_sign))
+			if(bSignFlagSet)
 			{
 				PerformInstructionJump(At, InstructionSize, Operand.ImmediateS32);
 				IP_Offset_To_Add = Operand.ImmediateS32;
+				continue;
+			}
+		}
+		else if(Instruction.Op == operation_type::Op_jp)
+		{
+			if(bParityFlagSet)
+			{
+				PerformInstructionJump(At, InstructionSize, Operand.ImmediateS32);
+				IP_Offset_To_Add = Operand.ImmediateS32;
+				continue;
+			}
+		}
+		else if(Instruction.Op == operation_type::Op_loopnz)
+		{
+			// Z flag == 0 and CX -= 1 != 0
+			if(!bZeroFlagSet)
+			{
+				if((--g_Register_Infos[register_index::Register_c - 1]) != 0)
+				{
+					PerformInstructionJump(At, InstructionSize, Operand.ImmediateS32);
+					IP_Offset_To_Add = Operand.ImmediateS32;
+					continue;
+				}
+				
 			}
 		}
 		else if(DestinationRegister == register_index::Register_none)
@@ -396,6 +425,8 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 		}
 		
 		
+		auto prev_Value = g_Register_Infos[DestinationRegister - 1];
+		
 		if(Instruction.Op == operation_type::Op_mov)
 		{
 			
@@ -412,6 +443,8 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 			// SUB
 			g_Register_Infos[DestinationRegister - 1] -= Operation_Value_To_Use;
 		}
+		
+		auto after_value = g_Register_Infos[DestinationRegister - 1];
 		
 		
 		u32& Current_Register_Flags = g_Register_Infos[register_index::Register_flags - 1];
@@ -443,7 +476,29 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 			{
 				// Greater
 				Current_Register_Flags &= (~( 1 << register_flags_fields::Flag_sign));
+				Current_Register_Flags &= (~( 1 << register_flags_fields::Flag_zero));
 			}
+			
+			// Parity Flag Check - even number of bits set on the result to evaluate
+			
+			u16 BitCount = 0;
+			for(u16 BitIndex = 0; BitIndex < 16; ++BitIndex)
+			{
+				if((1 << (BitIndex)) & Value_To_Evaluate)
+				{
+					BitCount++;
+				}
+			}
+			
+			if((BitCount % 2) == 0)
+			{
+				Current_Register_Flags |= 1 << register_flags_fields::Flag_parity;
+			}
+			else
+			{
+				Current_Register_Flags &= (~(1 << register_flags_fields::Flag_parity));
+			}
+			
 		}
 		
 		

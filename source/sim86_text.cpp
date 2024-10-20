@@ -186,12 +186,20 @@ void PrintRegistersState(FILE* Dest)
         "ds", 
         "ip"
     };
+	
+	printf( "\n");
+	printf("Register States: ");
+	printf("\n");
     
     for(u32 i = 0; i< ArrayCount(g_Register_Infos); ++i)
     {
         const char* RegisterName = Registers[i];
-        fprintf(Dest, "Register: %s: %i", RegisterName, TwosComplementToSigned(g_Register_Infos[i]));
-        printf("\n");
+		s32 RegisterValue = TwosComplementToSigned(g_Register_Infos[i]);
+		if(RegisterValue > 0)
+		{
+			fprintf(Dest, "      %s: %i", RegisterName, RegisterValue);
+			printf("\n");
+		}
     }
 }
 

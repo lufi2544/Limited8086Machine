@@ -1039,12 +1039,26 @@ void DisAsm8086(memory* Memory, u32 DisAsmByteCount, segmented_access DisAsmStar
 				break;
 			}
             
+			
 			s32 PreviousSegmentedAccessOffset = At.SegmentOffset;
 			UpdateContext(&Context, Instruction);
 			UpdateRegisterValues(&Context, Instruction, &At);
 			
+			
+			u32 CountOffset = At.SegmentOffset - PreviousSegmentedAccessOffset;
+			if(PreviousSegmentedAccessOffset > At.SegmentOffset)
+			{
+				CountOffset = PreviousSegmentedAccessOffset - At.SegmentOffset;
+			}
+			
+			// TODO Math the cound when an offset happens.
 			// Updating the bytes to read, depending on the At segmeneted acces, due to jump instructions modifying the IP.
-			Count += (At.SegmentOffset - PreviousSegmentedAccessOffset);
+			Count += CountOffset;
+			
+			if(Count > 99 || Count < 0)
+			{
+				printf("WTF");
+			}
 			
 			if(IsPrintable(Instruction))
 			{
