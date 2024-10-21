@@ -52,6 +52,9 @@ struct disasm_context
 disasm_context
 DefaultContext(void);
 
+bool
+IsNegative(const u32 Num);
+
 void
 UpdateContext(disasm_context *Context, instruction Instruction);
 

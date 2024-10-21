@@ -1,4 +1,5 @@
 ﻿#include "sim86_text.h"
+#include "sim86_decode.h"
 
 
 char const *OpCodeMnemonics[] =
@@ -155,11 +156,15 @@ void PrintInstruction(instruction Instruction, FILE* Dest)
 
 s32 TwosComplementToSigned(u32 Number)
 {
-	// Is 
-    if(IsNegativeTwosComplement(Number))
+	// Clamping the number to a 16 bit, since the 8086 is a 16 bit CPU.
+    Number &= 0xFFFF;
+    if(IsNegative(Number))
     {
+        // Clamping the result from the 2s complement operation to 16 bit. 
         s32 a = (~(Number) + 1) & 0xFFFF;
-        return a;
+        
+        // adding just the symbol here.
+        return -a;
     }
     else
     {
@@ -196,7 +201,7 @@ void PrintRegistersState(FILE* Dest)
     {
         const char* RegisterName = Registers[i];
 		s32 RegisterValue = TwosComplementToSigned(g_Register_Infos[i]);
-		if(RegisterValue > 0)
+		if(RegisterValue != 0)
 		{
 			fprintf(Dest, "      %s: %i", RegisterName, RegisterValue);
 			printf("\n");
