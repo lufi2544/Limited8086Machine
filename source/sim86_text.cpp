@@ -155,9 +155,10 @@ void PrintInstruction(instruction Instruction, FILE* Dest)
 
 s32 TwosComplementToSigned(u32 Number)
 {
-    if(Number & (1 << 15))
+	// Is 
+    if(IsNegativeTwosComplement(Number))
     {
-        s32 a = -((~(Number) + 1) & 0xFFFF);
+        s32 a = (~(Number) + 1) & 0xFFFF;
         return a;
     }
     else
