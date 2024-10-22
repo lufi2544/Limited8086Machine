@@ -41,4 +41,11 @@ u8 ReadMemory(memory *Memory, u32 AbsoluteAddress)
     return Result;
 }
 
+void
+WriteMemory(u8 Value, u16 SegmentBase, u16 SegmentOffset, u16 AdditionalOffset, memory *Memory)
+{
+	u32 MemoryAddress = GetMemoryAddress_8086(SegmentBase, SegmentOffset, AdditionalOffset);
+	Memory->Bytes[MemoryAddress] = Value;
+}
+
 

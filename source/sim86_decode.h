@@ -59,7 +59,7 @@ void
 UpdateContext(disasm_context *Context, instruction Instruction);
 
 void 
-UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented_access *At);
+UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented_access *At, memory *Memory);
 
 void
 UpdateFlagsRegister(instruction Instruction);

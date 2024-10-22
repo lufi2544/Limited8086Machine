@@ -1,6 +1,7 @@
 ﻿#include "sim86_decode.h"
 
 #include "sim86_memory.h"
+#include "sim8086.h"
 #include <iostream>
 
 
@@ -321,14 +322,17 @@ void PerformInstructionJump(segmented_access *At, u32 InstructionSize, s32 JumpO
 }
 
 void
-UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented_access *At)
+UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented_access *At, memory *Memory)
 {
 	// REGISTER STATES
     // For now we have simple move instructions. When we imply 8 bit registers like dh or dl, we have to check the D flag.
 	
 	u32 Prev_Register_Flags = g_Register_Infos[register_index::Register_flags - 1];
     register_index DestinationRegister = register_index::Register_none;
+	
 	s32 DestinationRegister_PreChange_Value = 0;
+	effective_address_expression DestinationAddress;
+	bool bAddressSet = false;
 	bool bShouldAffectFlags = false;
 	
 	
@@ -349,7 +353,7 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 		bool bSignFlagSet = Prev_Register_Flags & (1 << register_flags_fields::Flag_sign);
 		bool bParityFlagSet = Prev_Register_Flags & (1 << register_flags_fields::Flag_parity);
 		
-		// Checking the jump instructions first
+		// JUMPS OPERATION
 		if(Instruction.Op == operation_type::Op_jne)
 		{
 			//@juanes: TODO ORGANIC WAY OF CHECKING FLAGS REGISTER AND ADDING IP_Offset_To_Add.
@@ -402,15 +406,33 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 				
 			}
 		}
-		else if(DestinationRegister == register_index::Register_none)
+		/////////////
+		
+		// MEMORY OPERATION
+		
+		
+		if(!bAddressSet)
 		{
-			if(Operand.Type == operand_type::Operand_Register)
+			if(Operand.Type == operand_type::Operand_Memory)
 			{
-				DestinationRegister = Operand.Register.Index;
-				bShouldAffectFlags = Instruction.Op != operation_type::Op_mov;
-				DestinationRegister_PreChange_Value = g_Register_Infos[DestinationRegister - 1];
+				DestinationAddress = Operand.Address;
 				continue;
 			}
+		}
+		else
+		{
+			
+		}
+		
+		///////////
+		
+		// REGISTERS OPERATION
+		if(Operand.Type == operand_type::Operand_Register && DestinationRegister == register_index::Register_none)
+		{
+			DestinationRegister = Operand.Register.Index;
+			bShouldAffectFlags = Instruction.Op != operation_type::Op_mov;
+			DestinationRegister_PreChange_Value = g_Register_Infos[DestinationRegister - 1];
+			continue;
 		}
 		
 		
@@ -423,15 +445,39 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 		{
 			Operation_Value_To_Use = Operand.ImmediateS32;
 		}
+		else if(false)
+		{
+			// Check here for memory, this would be a load
+		}
 		
-		
-		auto prev_Value = g_Register_Infos[DestinationRegister - 1];
 		
 		if(Instruction.Op == operation_type::Op_mov)
 		{
 			
 			// MOV
-			g_Register_Infos[DestinationRegister - 1] = Operation_Value_To_Use;
+			
+			if(bAddressSet)
+			{
+				// Store
+				u32 MemoryValueToAccess = DestinationAddress.Displacement;
+				if(DestinationAddress.Segment != register_index::Register_none)
+				{
+					MemoryValueToAccess = g_Register_Infos[DestinationAddress.Segment - 1];
+					if(DestinationAddress.Displacement != 0)
+					{
+						MemoryValueToAccess += DestinationAddress.Displacement;
+					}
+				}
+				else if(DestinationAddress.Base == effective_address_base::EffectiveAddress_direct)
+				{
+					GetMemoryAddress_8086(0, DestinationAddress.Displacement);
+				}
+				
+			}
+			else
+			{
+				g_Register_Infos[DestinationRegister - 1] = Operation_Value_To_Use;
+			}
 		}
 		else if(Instruction.Op == operation_type::Op_add)
 		{
@@ -443,8 +489,6 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 			// SUB
 			g_Register_Infos[DestinationRegister - 1] -= Operation_Value_To_Use;
 		}
-		
-		auto after_value = g_Register_Infos[DestinationRegister - 1];
 		
 		
 		u32& Current_Register_Flags = g_Register_Infos[register_index::Register_flags - 1];
@@ -479,8 +523,8 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 				Current_Register_Flags &= (~( 1 << register_flags_fields::Flag_zero));
 			}
 			
-			// Parity Flag Check - even number of bits set on the result to evaluate
 			
+			// PARITY FLAG (P) - even number of bits set on the result to evaluate
 			u16 BitCount = 0;
 			for(u16 BitIndex = 0; BitIndex < 16; ++BitIndex)
 			{
