@@ -321,20 +321,19 @@ void PerformInstructionJump(segmented_access *At, u32 InstructionSize, s32 JumpO
 	At->SegmentOffset -= InstructionSize;
 }
 
+
 void
 UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented_access *At, memory *Memory)
 {
+	
 	// REGISTER STATES
     // For now we have simple move instructions. When we imply 8 bit registers like dh or dl, we have to check the D flag.
 	
 	u32 Prev_Register_Flags = g_Register_Infos[register_index::Register_flags - 1];
-    register_index DestinationRegister = register_index::Register_none;
 	
-	s32 DestinationRegister_PreChange_Value = 0;
-	effective_address_expression DestinationAddress;
-	bool bAddressSet = false;
-	bool bShouldAffectFlags = false;
-	
+	instruction_operand DestinationOperand{};
+	instruction_operand SourceOperand{};
+	s32 SourceValue = 0;
 	
 	u32& Register_IP_Ref = g_Register_Infos[register_index::Register_ip - 1];
 	u32 InstructionSize = (At->SegmentOffset - Register_IP_Ref);
@@ -352,8 +351,9 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 		bool bZeroFlagSet = Prev_Register_Flags & (1 << register_flags_fields::Flag_zero);
 		bool bSignFlagSet = Prev_Register_Flags & (1 << register_flags_fields::Flag_sign);
 		bool bParityFlagSet = Prev_Register_Flags & (1 << register_flags_fields::Flag_parity);
+		bool bIsWideInstruction = Instruction.Flags & Inst_Wide;
 		
-		// JUMPS OPERATION
+		// JUMP OPERATIONS
 		if(Instruction.Op == operation_type::Op_jne)
 		{
 			//@juanes: TODO ORGANIC WAY OF CHECKING FLAGS REGISTER AND ADDING IP_Offset_To_Add.
@@ -406,132 +406,129 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 				
 			}
 		}
+		
 		/////////////
 		
-		// MEMORY OPERATION
 		
-		
-		if(!bAddressSet)
+		if(DestinationOperand.Type == operand_type::Operand_None)
 		{
-			if(Operand.Type == operand_type::Operand_Memory)
-			{
-				DestinationAddress = Operand.Address;
-				bAddressSet = true;
-				continue;
-			}
-		}
-		else
-		{
-			
-		}
-		
-		///////////
-		
-		// REGISTERS OPERATION
-		if(Operand.Type == operand_type::Operand_Register && DestinationRegister == register_index::Register_none)
-		{
-			DestinationRegister = Operand.Register.Index;
-			bShouldAffectFlags = Instruction.Op != operation_type::Op_mov;
-			DestinationRegister_PreChange_Value = g_Register_Infos[DestinationRegister - 1];
+			DestinationOperand = Operand;
 			continue;
 		}
 		
-		
-		s32 Operation_Value_To_Use = 0;
-		if(Operand.Type == operand_type::Operand_Register)
-		{
-			Operation_Value_To_Use = g_Register_Infos[Operand.Register.Index - 1];
-		}
-		else if(Operand.Type == operand_type::Operand_Immediate)
-		{
-			Operation_Value_To_Use = Operand.ImmediateS32;
-		}
-		else if(false)
-		{
-			// Check here for memory, this would be a load
-		}
+		SourceOperand = Operand;
 		
 		
-		if(Instruction.Op == operation_type::Op_mov)
+		// READ THE SOURCE OPERAND
+		
+		if(SourceOperand.Type == operand_type::Operand_Immediate)
 		{
+			SourceValue = SourceOperand.ImmediateS32;
+		}
+		else if(SourceOperand.Type == operand_type::Operand_Register)
+		{
+			SourceValue = g_Register_Infos[Operand.Register.Index - 1];
+		}
+		else if(SourceOperand.Type == operand_type::Operand_Memory)
+		{
+			// Read from Memory
 			
-			// MOV
-			if(bAddressSet)
+			u32 MemoryAddressBase = 0;
+			if(Operand.Address.Base == effective_address_base::EffectiveAddress_direct)
 			{
-				// Store
-				
-				u32 MemoryAddressBase = DestinationAddress.Displacement;
-				
-				// TODO Function to get the value of the Immediate 
-				if(DestinationAddress.Base == effective_address_base::EffectiveAddress_bx)
-				{
-					// TODO Function here?
-					MemoryAddressBase += g_Register_Infos[register_index::Register_b - 1];
-				}
-				
-				u8 LowBits = 0;
-				u8 HighBits = 0;
-				
-				if(Operand.Type == operand_type::Operand_Immediate)
-				{
-					LowBits = 0xFF & Operand.ImmediateS32;
-					WriteMemory(LowBits, 0, MemoryAddressBase, 0, Memory);
-					
-					// Operating a wide instruction
-					if(Instruction.Flags & Inst_Wide)
-					{
-						HighBits = 0xFF00 & Operand.ImmediateS32;
-						WriteMemory(HighBits, 0, MemoryAddressBase, 1, Memory);
-					}
-				}
-				
+				// mov ax, word [1000]
+				MemoryAddressBase = SourceOperand.Address.Displacement;
 			}
-			else
+			else if(Operand.Address.Base == effective_address_base::EffectiveAddress_bx)
 			{
-				g_Register_Infos[DestinationRegister - 1] = Operation_Value_To_Use;
+				// mov ax, word [bx + 4]
+				MemoryAddressBase = (g_Register_Infos[register_index::Register_b - 1] + SourceOperand.Address.Displacement);
+			}
+			
+			u8 SourceValueLowBits = ReadMemory(Memory, g_Register_Infos[Operand.Address.Segment - 1], MemoryAddressBase, 0);
+			SourceValue = SourceValueLowBits;
+			
+			if(bIsWideInstruction)
+			{
+				u16 SourceHighBits = ReadMemory(Memory, g_Register_Infos[Operand.Address.Segment - 1], MemoryAddressBase, 1);
+				SourceValue |= (SourceHighBits << 8);
 			}
 			
 		}
-		else if(Instruction.Op == operation_type::Op_add)
+		
+		// OPERATION ON DESTINATION OPERAND
+		
+		if(DestinationOperand.Type == operand_type::Operand_Register)
 		{
-			// ADD
-			g_Register_Infos[DestinationRegister - 1] += Operation_Value_To_Use;
+			u32& DestinationRegister = g_Register_Infos[DestinationOperand.Register.Index - 1];
+			if(Instruction.Op == operation_type::Op_mov)
+			{
+				// MOV
+				DestinationRegister = SourceValue;
+			}
+			else if(Instruction.Op == operation_type::Op_add)
+			{
+				// ADD
+				DestinationRegister += SourceValue;
+			}
+			else if(Instruction.Op == operation_type::Op_sub)
+			{
+				// SUB
+				DestinationRegister -= SourceValue;
+			}
 		}
-		else if(Instruction.Op == operation_type::Op_sub)
+		else if(DestinationOperand.Type == operand_type::Operand_Memory)
 		{
-			// SUB
-			g_Register_Infos[DestinationRegister - 1] -= Operation_Value_To_Use;
+			// DESTINATION AS MEMORY
+			
+			u32 DestinationMemoryAddressBase = DestinationOperand.Address.Displacement;
+			
+			if(DestinationOperand.Address.Base == effective_address_base::EffectiveAddress_bx)
+			{
+				DestinationMemoryAddressBase += g_Register_Infos[register_index::Register_b - 1];
+			}
+			
+			if(Instruction.Op == operation_type::Op_mov)
+			{
+				u8 LowBits = 0xFF & SourceValue;
+				WriteMemory(LowBits, 0/* Segment */, DestinationMemoryAddressBase, 0, Memory);
+				
+				// Operating a wide instruction
+				if(Instruction.Flags & Inst_Wide)
+				{
+					u8 HighBits = 0xFF00 & SourceValue;
+					WriteMemory(HighBits, 0/* Segment */, DestinationMemoryAddressBase, 1, Memory);
+				}
+			}
 		}
 		
 		
+		// FLAGS  SETTING
 		u32& Current_Register_Flags = g_Register_Infos[register_index::Register_flags - 1];
-		if(bShouldAffectFlags)
+		if(Instruction.Op != operation_type::Op_mov)
 		{
-			u32 Value_To_Compared_To = Operand.ImmediateS32;
-			if(Operand.Type == operand_type::Operand_Register)
-			{
-				Value_To_Compared_To = g_Register_Infos[Operand.Register.Index - 1];
-			}
 			
-			u32 Value_To_Evaluate = g_Register_Infos[DestinationRegister - 1];
+			u32 DestinationRegisterFinalValue = g_Register_Infos[DestinationOperand.Register.Index - 1];
+			u32 ValueToEvaluate = DestinationRegisterFinalValue;
+			
 			if(Instruction.Op == operation_type::Op_cmp)
 			{
-				Value_To_Evaluate = DestinationRegister_PreChange_Value - Value_To_Compared_To;
+				ValueToEvaluate = DestinationRegisterFinalValue - SourceValue;
 			}
 			
-			if(Value_To_Evaluate == 0)
+			if(ValueToEvaluate == 0)
 			{
 				// Zero
 				Current_Register_Flags |= ( 1 << static_cast<u8>(register_flags_fields::Flag_zero));
 			}
-			else if(IsNegative(Value_To_Evaluate))
+			else if(IsNegative(ValueToEvaluate))
 			{
-				// Is smaller
+				// Negative
 				Current_Register_Flags |= ( 1 << register_flags_fields::Flag_sign);
 			}
 			else
 			{
-				// Greater
+				// Clear Flags
 				Current_Register_Flags &= (~( 1 << register_flags_fields::Flag_sign));
 				Current_Register_Flags &= (~( 1 << register_flags_fields::Flag_zero));
 			}
@@ -541,7 +538,7 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 			u16 BitCount = 0;
 			for(u16 BitIndex = 0; BitIndex < 16; ++BitIndex)
 			{
-				if((1 << (BitIndex)) & Value_To_Evaluate)
+				if((1 << (BitIndex)) & ValueToEvaluate)
 				{
 					BitCount++;
 				}
