@@ -416,6 +416,7 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 			if(Operand.Type == operand_type::Operand_Memory)
 			{
 				DestinationAddress = Operand.Address;
+				bAddressSet = true;
 				continue;
 			}
 		}
@@ -455,22 +456,33 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 		{
 			
 			// MOV
-			
 			if(bAddressSet)
 			{
 				// Store
-				u32 MemoryValueToAccess = DestinationAddress.Displacement;
-				if(DestinationAddress.Segment != register_index::Register_none)
+				
+				u32 MemoryAddressBase = DestinationAddress.Displacement;
+				
+				// TODO Function to get the value of the Immediate 
+				if(DestinationAddress.Base == effective_address_base::EffectiveAddress_bx)
 				{
-					MemoryValueToAccess = g_Register_Infos[DestinationAddress.Segment - 1];
-					if(DestinationAddress.Displacement != 0)
-					{
-						MemoryValueToAccess += DestinationAddress.Displacement;
-					}
+					// TODO Function here?
+					MemoryAddressBase += g_Register_Infos[register_index::Register_b - 1];
 				}
-				else if(DestinationAddress.Base == effective_address_base::EffectiveAddress_direct)
+				
+				u8 LowBits = 0;
+				u8 HighBits = 0;
+				
+				if(Operand.Type == operand_type::Operand_Immediate)
 				{
-					GetMemoryAddress_8086(0, DestinationAddress.Displacement);
+					LowBits = 0xFF & Operand.ImmediateS32;
+					WriteMemory(LowBits, 0, MemoryAddressBase, 0, Memory);
+					
+					// Operating a wide instruction
+					if(Instruction.Flags & Inst_Wide)
+					{
+						HighBits = 0xFF00 & Operand.ImmediateS32;
+						WriteMemory(HighBits, 0, MemoryAddressBase, 1, Memory);
+					}
 				}
 				
 			}
@@ -478,6 +490,7 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 			{
 				g_Register_Infos[DestinationRegister - 1] = Operation_Value_To_Use;
 			}
+			
 		}
 		else if(Instruction.Op == operation_type::Op_add)
 		{
