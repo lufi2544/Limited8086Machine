@@ -322,6 +322,31 @@ void PerformInstructionJump(segmented_access *At, u32 InstructionSize, s32 JumpO
 }
 
 
+u32 
+GetMemoryAddressBaseFromOperand(instruction_operand *Operand)
+{
+	// mov ax, 4
+	u32 MemoryAddressBase = Operand->Address.Displacement;
+	if(Operand->Address.Base == effective_address_base::EffectiveAddress_bx)
+	{
+		// [bx + 4]
+		MemoryAddressBase += g_Register_Infos[register_index::Register_b - 1];
+	}
+	else if(Operand->Address.Base == effective_address_base::EffectiveAddress_bp_si)
+	{
+		// [bp + si]
+		u32 Bp_Si = g_Register_Infos[register_index::Register_bp - 1] + g_Register_Infos[register_index::Register_si - 1];
+		MemoryAddressBase = Bp_Si;
+	}
+	else
+	{
+		printf("ERROR: Reading from Memory as Source for Operation, but the effective_address_base is not implemented %i \n", Operand->Address.Base);
+	}
+	
+	return MemoryAddressBase;
+}
+
+
 void
 UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented_access *At, memory *Memory)
 {
@@ -432,29 +457,19 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 		else if(SourceOperand.Type == operand_type::Operand_Memory)
 		{
 			// Read from Memory
+			u32 MemoryAddressBase = GetMemoryAddressBaseFromOperand(&SourceOperand);
 			
-			u32 MemoryAddressBase = 0;
-			if(Operand.Address.Base == effective_address_base::EffectiveAddress_direct)
-			{
-				// mov ax, word [1000]
-				MemoryAddressBase = SourceOperand.Address.Displacement;
-			}
-			else if(Operand.Address.Base == effective_address_base::EffectiveAddress_bx)
-			{
-				// mov ax, word [bx + 4]
-				MemoryAddressBase = (g_Register_Infos[register_index::Register_b - 1] + SourceOperand.Address.Displacement);
-			}
-			
-			u8 SourceValueLowBits = ReadMemory(Memory, g_Register_Infos[Operand.Address.Segment - 1], MemoryAddressBase, 0);
+			u8 SourceValueLowBits = ReadMemory(Memory, g_Register_Infos[SourceOperand.Address.Segment - 1], MemoryAddressBase, 0);
 			SourceValue = SourceValueLowBits;
 			
 			if(bIsWideInstruction)
 			{
-				u16 SourceHighBits = ReadMemory(Memory, g_Register_Infos[Operand.Address.Segment - 1], MemoryAddressBase, 1);
+				u16 SourceHighBits = ReadMemory(Memory, g_Register_Infos[SourceOperand.Address.Segment - 1], MemoryAddressBase, 1);
 				SourceValue |= (SourceHighBits << 8);
 			}
 			
 		}
+		
 		
 		// OPERATION ON DESTINATION OPERAND
 		
@@ -481,13 +496,7 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 		{
 			// DESTINATION AS MEMORY
 			
-			u32 DestinationMemoryAddressBase = DestinationOperand.Address.Displacement;
-			
-			if(DestinationOperand.Address.Base == effective_address_base::EffectiveAddress_bx)
-			{
-				DestinationMemoryAddressBase += g_Register_Infos[register_index::Register_b - 1];
-			}
-			
+			u32 DestinationMemoryAddressBase = GetMemoryAddressBaseFromOperand(&DestinationOperand);
 			if(Instruction.Op == operation_type::Op_mov)
 			{
 				u8 LowBits = 0xFF & SourceValue;
