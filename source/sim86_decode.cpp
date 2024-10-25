@@ -332,6 +332,10 @@ GetMemoryAddressBaseFromOperand(instruction_operand *Operand)
 		// [bx + 4]
 		MemoryAddressBase += g_Register_Infos[register_index::Register_b - 1];
 	}
+	else if(Operand->Address.Base == effective_address_base::EffectiveAddress_bp)
+	{
+		MemoryAddressBase += g_Register_Infos[register_index::Register_bp - 1];
+	}
 	else if(Operand->Address.Base == effective_address_base::EffectiveAddress_bp_si)
 	{
 		// [bp + si]
@@ -346,6 +350,11 @@ GetMemoryAddressBaseFromOperand(instruction_operand *Operand)
 	return MemoryAddressBase;
 }
 
+u32&
+GetRegisterValue(register_index RegisterIndex)
+{
+	return g_Register_Infos[RegisterIndex -1];
+}
 
 void
 UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented_access *At, memory *Memory)
@@ -378,58 +387,43 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 		bool bParityFlagSet = Prev_Register_Flags & (1 << register_flags_fields::Flag_parity);
 		bool bIsWideInstruction = Instruction.Flags & Inst_Wide;
 		
+		bool bPerformJump = false;
+		
 		// JUMP OPERATIONS
 		if(Instruction.Op == operation_type::Op_jne)
 		{
-			//@juanes: TODO ORGANIC WAY OF CHECKING FLAGS REGISTER AND ADDING IP_Offset_To_Add.
-			if(!bZeroFlagSet)
-			{
-				PerformInstructionJump(At, InstructionSize, Operand.ImmediateS32);
-				IP_Offset_To_Add = Operand.ImmediateS32;
-				continue;
-			}
+			bPerformJump = !bZeroFlagSet;
 		}
 		else if(Instruction.Op == operation_type::Op_je)
 		{
-			if(bZeroFlagSet)
-			{
-				PerformInstructionJump(At, InstructionSize, Operand.ImmediateS32);
-				IP_Offset_To_Add = Operand.ImmediateS32;
-				continue;
-			}
-			
+			bPerformJump = bZeroFlagSet;
 		}
 		else if(Instruction.Op == operation_type::Op_jb)
 		{
-			if(bSignFlagSet)
-			{
-				PerformInstructionJump(At, InstructionSize, Operand.ImmediateS32);
-				IP_Offset_To_Add = Operand.ImmediateS32;
-				continue;
-			}
+			bPerformJump = bSignFlagSet;
 		}
 		else if(Instruction.Op == operation_type::Op_jp)
 		{
-			if(bParityFlagSet)
-			{
-				PerformInstructionJump(At, InstructionSize, Operand.ImmediateS32);
-				IP_Offset_To_Add = Operand.ImmediateS32;
-				continue;
-			}
+			bPerformJump = bParityFlagSet;
 		}
 		else if(Instruction.Op == operation_type::Op_loopnz)
 		{
 			// Z flag == 0 and CX -= 1 != 0
-			if(!bZeroFlagSet)
-			{
-				if((--g_Register_Infos[register_index::Register_c - 1]) != 0)
-				{
-					PerformInstructionJump(At, InstructionSize, Operand.ImmediateS32);
-					IP_Offset_To_Add = Operand.ImmediateS32;
-					continue;
-				}
-				
-			}
+			bPerformJump = !bZeroFlagSet && ((--GetRegisterValue(register_index::Register_c)) != 0);
+			
+		}
+		else if(Instruction.Op == operation_type::Op_loop)
+		{
+			// cx -= 1 loop if != 0
+			bPerformJump = (--GetRegisterValue(register_index::Register_c)) != 0;
+		}
+		
+		// Perfoming Jump if any jump condition is met.
+		if(bPerformJump)
+		{
+			PerformInstructionJump(At, InstructionSize, Operand.ImmediateS32);
+			IP_Offset_To_Add = Operand.ImmediateS32;
+			continue;
 		}
 		
 		/////////////
@@ -452,19 +446,19 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 		}
 		else if(SourceOperand.Type == operand_type::Operand_Register)
 		{
-			SourceValue = g_Register_Infos[Operand.Register.Index - 1];
+			SourceValue = GetRegisterValue(Operand.Register.Index);
 		}
 		else if(SourceOperand.Type == operand_type::Operand_Memory)
 		{
 			// Read from Memory
 			u32 MemoryAddressBase = GetMemoryAddressBaseFromOperand(&SourceOperand);
 			
-			u8 SourceValueLowBits = ReadMemory(Memory, g_Register_Infos[SourceOperand.Address.Segment - 1], MemoryAddressBase, 0);
+			u8 SourceValueLowBits = ReadMemory(Memory, GetRegisterValue(SourceOperand.Address.Segment), MemoryAddressBase, 0);
 			SourceValue = SourceValueLowBits;
 			
 			if(bIsWideInstruction)
 			{
-				u16 SourceHighBits = ReadMemory(Memory, g_Register_Infos[SourceOperand.Address.Segment - 1], MemoryAddressBase, 1);
+				u16 SourceHighBits = ReadMemory(Memory, GetRegisterValue(SourceOperand.Address.Segment), MemoryAddressBase, 1);
 				SourceValue |= (SourceHighBits << 8);
 			}
 			
@@ -475,7 +469,7 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 		
 		if(DestinationOperand.Type == operand_type::Operand_Register)
 		{
-			u32& DestinationRegister = g_Register_Infos[DestinationOperand.Register.Index - 1];
+			u32& DestinationRegister = GetRegisterValue(DestinationOperand.Register.Index);
 			if(Instruction.Op == operation_type::Op_mov)
 			{
 				// MOV
@@ -494,8 +488,8 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 		}
 		else if(DestinationOperand.Type == operand_type::Operand_Memory)
 		{
-			// DESTINATION AS MEMORY
 			
+			// Read from memory
 			u32 DestinationMemoryAddressBase = GetMemoryAddressBaseFromOperand(&DestinationOperand);
 			if(Instruction.Op == operation_type::Op_mov)
 			{
@@ -513,11 +507,11 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 		
 		
 		// FLAGS  SETTING
-		u32& Current_Register_Flags = g_Register_Infos[register_index::Register_flags - 1];
+		u32& Current_Register_Flags = GetRegisterValue(register_index::Register_flags);
 		if(Instruction.Op != operation_type::Op_mov)
 		{
 			
-			u32 DestinationRegisterFinalValue = g_Register_Infos[DestinationOperand.Register.Index - 1];
+			u32 DestinationRegisterFinalValue = GetRegisterValue(DestinationOperand.Register.Index);
 			u32 ValueToEvaluate = DestinationRegisterFinalValue;
 			
 			if(Instruction.Op == operation_type::Op_cmp)
@@ -565,6 +559,7 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 		}
 		
 		
+		
 		// PRINT FLAGS CHANGE
 		if(Current_Register_Flags != Prev_Register_Flags)
 		{
@@ -598,7 +593,9 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 			
 			std::printf("\n");
 		}
+		
 	}
+	
 	
 	
 	// UPDATING THE IP REGISTER

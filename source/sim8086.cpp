@@ -4,6 +4,7 @@
 #include <iostream>
 #include <fstream>
 #include <bitset>
+#include <fstream>
 
 #include "sim86_decode.h"
 #include "sim86_memory.h"
@@ -73,13 +74,28 @@ int main (int ArgCount, char** Args)
 	memory* Memory = (memory*)malloc(sizeof(memory));
 	
     
-    char* FileName = "listing_0052_memory_add_loop";
+    char* FileName = "listing_0055_challenge_rectangle";
     
     // @BytesRead, number of bytes (Instruction + Additional Instruction flags)
     u32 BytesRead = LoadMemoryFromFile(FileName, Memory, 0);
-    printf("; disassembly: \n", FileName);
+    printf("; disassembly: %s \n", FileName);
     printf("bits 16\n");
     DisAsm8086(Memory, BytesRead, {});
+	
+	// Dumping memory to a file for reading externaly
+	std::ofstream ofs("memory-dump.data", std::ofstream::binary);
+	for(int ArgIdx = 0; ArgIdx < ArgCount; ++ArgIdx)
+	{
+		char* Arg = Args[ArgIdx];
+		for(int MemoryByteIdx = 0; MemoryByteIdx < sizeof(memory); ++MemoryByteIdx)
+		{
+			u8 MemValue = Memory->Bytes[MemoryByteIdx];
+			ofs << MemValue;
+		}
+		
+	}
+	
+	ofs.close();
 	
 	return 0;
 }
