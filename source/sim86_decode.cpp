@@ -321,39 +321,52 @@ void PerformInstructionJump(segmented_access *At, u32 InstructionSize, s32 JumpO
 	At->SegmentOffset -= InstructionSize;
 }
 
+u32&
+GetRegisterValue(register_index RegisterIndex)
+{
+	return g_Register_Infos[RegisterIndex -1];
+}
 
 u32 
 GetMemoryAddressBaseFromOperand(instruction_operand *Operand)
 {
 	// mov ax, 4
 	u32 MemoryAddressBase = Operand->Address.Displacement;
-	if(Operand->Address.Base == effective_address_base::EffectiveAddress_bx)
+	if(Operand->Address.Base != effective_address_base::EffectiveAddress_direct)
 	{
-		// [bx + 4]
-		MemoryAddressBase += g_Register_Infos[register_index::Register_b - 1];
-	}
-	else if(Operand->Address.Base == effective_address_base::EffectiveAddress_bp)
-	{
-		MemoryAddressBase += g_Register_Infos[register_index::Register_bp - 1];
-	}
-	else if(Operand->Address.Base == effective_address_base::EffectiveAddress_bp_si)
-	{
-		// [bp + si]
-		u32 Bp_Si = g_Register_Infos[register_index::Register_bp - 1] + g_Register_Infos[register_index::Register_si - 1];
-		MemoryAddressBase = Bp_Si;
-	}
-	else
-	{
-		printf("ERROR: Reading from Memory as Source for Operation, but the effective_address_base is not implemented %i \n", Operand->Address.Base);
+		if(Operand->Address.Base == effective_address_base::EffectiveAddress_bx)
+		{
+			// [bx + 4]
+			MemoryAddressBase += GetRegisterValue(register_index::Register_b);
+		}
+		else if(Operand->Address.Base == effective_address_base::EffectiveAddress_bp)
+		{
+			MemoryAddressBase += GetRegisterValue(register_index::Register_bp);
+		}
+		else if(Operand->Address.Base == effective_address_base::EffectiveAddress_bp_si)
+		{
+			// [bp + si]
+			u32 Bp_Si = GetRegisterValue(register_index::Register_bp) + GetRegisterValue(register_index::Register_si);
+			MemoryAddressBase = Bp_Si;
+		}
+		else if(Operand->Address.Base == effective_address_base::EffectiveAddress_si)
+		{
+			u32 Si = GetRegisterValue(register_index::Register_si);
+			MemoryAddressBase += Si;
+		}
+		else if(Operand->Address.Base == effective_address_base::EffectiveAddress_di)
+		{
+			u32 Di = GetRegisterValue(register_index::Register_di);
+			MemoryAddressBase += Di;
+		}
+		else
+		{
+			printf("ERROR: Reading from Memory as Source for Operation, but the effective_address_base is not implemented %i \n", Operand->Address.Base);
+		}
 	}
 	
+	
 	return MemoryAddressBase;
-}
-
-u32&
-GetRegisterValue(register_index RegisterIndex)
-{
-	return g_Register_Infos[RegisterIndex -1];
 }
 
 void
@@ -368,10 +381,12 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 	instruction_operand DestinationOperand{};
 	instruction_operand SourceOperand{};
 	s32 SourceValue = 0;
+	u32 InstructionCycles = 0;
 	
 	u32& Register_IP_Ref = g_Register_Infos[register_index::Register_ip - 1];
 	u32 InstructionSize = (At->SegmentOffset - Register_IP_Ref);
 	s32 IP_Offset_To_Add = InstructionSize;
+	
 	
     for(u32 i = 0; i < ArrayCount(Instruction.Operands); ++i)
     {
@@ -479,6 +494,63 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 			{
 				// ADD
 				DestinationRegister += SourceValue;
+				
+				
+				// @ TODO Maybe a better way of meausuring this? I am taking advantage of the contidionals being met hre.
+				// so we do not have to check conditions for Operands and Instruction again, it would be cleaner, but ...
+				// Cycles
+				u32 PrevCycles = InstructionCycles;
+				if(SourceOperand.Type == operand_type::Operand_Immediate)
+				{
+					InstructionCycles += 4;
+				}
+				else if(SourceOperand.Type == operand_type::Operand_Register)
+				{
+					InstructionCycles += 3;
+				}
+				else if(SourceOperand.Type == operand_type::Operand_Memory)
+				{
+					InstructionCycles += 9;
+					
+					if(SourceOperand.Address.Base == effective_address_base::EffectiveAddress_direct)
+					{
+						InstructionCycles += 6;
+					}
+					else if(SourceOperand.Address.Base >= effective_address_base::EffectiveAddress_si 
+							&& SourceOperand.Address.Base <= effective_address_base::EffectiveAddress_bx )
+					{
+						InstructionCycles += 5;
+						
+						if(SourceOperand.Address.Displacement != 0)
+						{
+							InstructionCycles += 4;
+						}
+					}
+					else if(SourceOperand.Address.Base == effective_address_base::EffectiveAddress_bp_di 
+							|| SourceOperand.Address.Base == effective_address_base::EffectiveAddress_bx_si)
+					{
+						InstructionCycles += 7;
+						if(SourceOperand.Address.Displacement != 0)
+						{
+							InstructionCycles += 4;
+						}
+					}
+					else if(SourceOperand.Address.Base == effective_address_base::EffectiveAddress_bp_si 
+							|| SourceOperand.Address.Base == effective_address_base::EffectiveAddress_bx_di)
+					{
+						InstructionCycles += 8;
+						if(SourceOperand.Address.Displacement != 0)
+						{
+							InstructionCycles += 4;
+						}
+					}
+				}
+				
+				printf(" [");
+				printf("Cycles: +%i  ", InstructionCycles);
+				
+				
+				
 			}
 			else if(Instruction.Op == operation_type::Op_sub)
 			{
@@ -563,7 +635,7 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 		// PRINT FLAGS CHANGE
 		if(Current_Register_Flags != Prev_Register_Flags)
 		{
-			std::printf("Flags ");
+			std::printf(" Flags ");
 			
 			// PREV FLAGS
 			for(u8 Flag_Index = 0; Flag_Index < register_flags_fields::Flag_Num; ++Flag_Index)
@@ -590,12 +662,12 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 				}
 				
 			}
-			
-			std::printf("\n");
+			printf("]");
 		}
 		
+		Context->CPUContext.TotalCycles += InstructionCycles;
+		
 	}
-	
 	
 	
 	// UPDATING THE IP REGISTER

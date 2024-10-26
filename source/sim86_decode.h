@@ -42,15 +42,22 @@ struct instruction_format
     instruction_bits Bits[16];
 };
 
+
+struct cpu_context
+{
+	u32 TotalCycles = 0;
+};
+
 struct disasm_context
 {
     u32 AdditionalFlags;
     register_index DefaultSegment;
+	cpu_context CPUContext;
 };
-
 
 disasm_context
 DefaultContext(void);
+
 
 bool
 IsNegative(const u32 Num);

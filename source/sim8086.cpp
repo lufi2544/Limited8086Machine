@@ -38,10 +38,16 @@ void DisAsm8086(memory* Memory, u32 DisAsmByteCount, segmented_access DisAsmStar
 				break;
 			}
             
+			if(IsPrintable(Instruction))
+			{
+				PrintInstruction(Instruction, stdout);
+			}
 			
 			s32 PreviousSegmentedAccessOffset = At.SegmentOffset;
 			UpdateContext(&Context, Instruction);
 			UpdateRegisterValues(&Context, Instruction, &At, Memory);
+			
+			printf("\n");
 			
 			
 			s32 CountOffset = At.SegmentOffset - PreviousSegmentedAccessOffset;
@@ -52,12 +58,6 @@ void DisAsm8086(memory* Memory, u32 DisAsmByteCount, segmented_access DisAsmStar
 			
 			// Updating the bytes to read, depending on the At segmeneted acces, due to jump instructions modifying the IP.
 			Count += CountOffset;
-			
-			if(IsPrintable(Instruction))
-			{
-				PrintInstruction(Instruction, stdout);
-				printf("\n");
-			}
 		}
 		else
 		{
@@ -67,14 +67,14 @@ void DisAsm8086(memory* Memory, u32 DisAsmByteCount, segmented_access DisAsmStar
 	}
     
 	PrintRegistersState(stdout);
+	printf(" Total Program Cycles: %i \n", Context.CPUContext.TotalCycles);
 }
 
 int main (int ArgCount, char** Args)
 {
 	memory* Memory = (memory*)malloc(sizeof(memory));
 	
-    
-    char* FileName = "listing_0055_challenge_rectangle";
+    char* FileName = "listing_0056_estimating_cycles";
     
     // @BytesRead, number of bytes (Instruction + Additional Instruction flags)
     u32 BytesRead = LoadMemoryFromFile(FileName, Memory, 0);
@@ -82,6 +82,9 @@ int main (int ArgCount, char** Args)
     printf("bits 16\n");
     DisAsm8086(Memory, BytesRead, {});
 	
+	
+	
+	/*
 	// Dumping memory to a file for reading externaly
 	std::ofstream ofs("memory-dump.data", std::ofstream::binary);
 	for(int ArgIdx = 0; ArgIdx < ArgCount; ++ArgIdx)
@@ -96,6 +99,7 @@ int main (int ArgCount, char** Args)
 	}
 	
 	ofs.close();
+*/
 	
 	return 0;
 }
