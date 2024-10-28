@@ -379,7 +379,11 @@ AddEACycles(u32 *EACycles, instruction_operand *SourceOperand)
 	else if(SourceOperand->Address.Base >= effective_address_base::EffectiveAddress_si 
 			&& SourceOperand->Address.Base <= effective_address_base::EffectiveAddress_bx )
 	{
-		if(SourceOperand->Address.Displacement != 0)
+		if(SourceOperand->Address.Displacement == 0)
+		{
+			*EACycles += 5;
+		}
+		else
 		{
 			*EACycles += 9;
 		}
@@ -588,7 +592,7 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 				// MOV
 				
 				u8 LowBits = 0xFF & SourceValue;
-				WriteMemory(LowBits, 0/* Segment */, DestinationMemoryAddressBase, 0, Memory);
+				WriteMemory(LowBits, 0/* Segment 0 by Default */, DestinationMemoryAddressBase, 0, Memory);
 				
 				// Operating a wide instruction
 				if(Instruction.Flags & Inst_Wide)
@@ -597,7 +601,48 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 					WriteMemory(HighBits, 0/* Segment */, DestinationMemoryAddressBase, 1, Memory);
 				}
 				
+				// Cycles
+				if(SourceOperand.Type == operand_type::Operand_Immediate)
+				{
+					InstructionCycles += 10;
+					AddEACycles(&EACycles, &SourceOperand);
+				}
+				else if(SourceOperand.Type == operand_type::Operand_Register)
+				{
+					InstructionCycles += 9;
+					AddEACycles(&EACycles, &DestinationOperand);
+				}
+			}
+			else if(Instruction.Op == operation_type::Op_add)
+			{
+				u8 DestinationValueLowBits = ReadMemory(Memory, GetRegisterValue(DestinationOperand.Address.Segment), DestinationMemoryAddressBase, 0);
+				u16 DestinationValueAdded  = DestinationValueLowBits;
+				if(bIsWideInstruction)
+				{
+					u8 DestinationValueHighBits = ReadMemory(Memory, GetRegisterValue(DestinationOperand.Address.Segment), DestinationMemoryAddressBase, 1);
+					DestinationValueAdded |= (DestinationValueHighBits << 8);
+				}
 				
+				DestinationValueAdded += SourceValue;
+				WriteMemory((DestinationValueAdded & 0xFF), 0 /*Segment Default*/, DestinationMemoryAddressBase, 0, Memory);
+				
+				if(bIsWideInstruction)
+				{
+					WriteMemory(((DestinationValueAdded << 8) & 0xFF00), 0 /*Segment Default*/, DestinationMemoryAddressBase, 1, Memory);
+				}
+				
+				// @TODO Maybe having a organic way of seeting the cycles? Repetitive code --> Adding CYCLE OPERATION FLAGS
+				// Cycles
+				if(SourceOperand.Type == operand_type::Operand_Immediate)
+				{
+					InstructionCycles += 17;
+					AddEACycles(&EACycles, &DestinationOperand);
+				}
+				else if(SourceOperand.Type == operand_type::Operand_Register)
+				{
+					InstructionCycles += 16;
+					AddEACycles(&EACycles, &DestinationOperand);
+				}
 				
 			}
 		}
@@ -672,7 +717,7 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 		// PRINT FLAGS CHANGE
 		if(Current_Register_Flags != Prev_Register_Flags)
 		{
-			std::printf("Flags ");
+			std::printf(" Flags ");
 			
 			// PREV FLAGS
 			for(u8 Flag_Index = 0; Flag_Index < register_flags_fields::Flag_Num; ++Flag_Index)
