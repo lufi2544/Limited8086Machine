@@ -370,11 +370,48 @@ GetMemoryAddressBaseFromOperand(instruction_operand *Operand)
 }
 
 void
+AddEACycles(u32 *EACycles, instruction_operand *SourceOperand)
+{
+	if(SourceOperand->Address.Base == effective_address_base::EffectiveAddress_direct)
+	{
+		*EACycles += 6;
+	}
+	else if(SourceOperand->Address.Base >= effective_address_base::EffectiveAddress_si 
+			&& SourceOperand->Address.Base <= effective_address_base::EffectiveAddress_bx )
+	{
+		if(SourceOperand->Address.Displacement != 0)
+		{
+			*EACycles += 9;
+		}
+	}
+	else
+	{
+		
+		// Assuming this will break here
+		if(SourceOperand->Address.Base == effective_address_base::EffectiveAddress_bp_di 
+		   || SourceOperand->Address.Base == effective_address_base::EffectiveAddress_bx_si)
+		{
+			*EACycles += 7;
+		}
+		else if(SourceOperand->Address.Base == effective_address_base::EffectiveAddress_bp_si 
+				|| SourceOperand->Address.Base == effective_address_base::EffectiveAddress_bx_di)
+		{
+			*EACycles += 8;
+		}
+		
+		if(SourceOperand->Address.Displacement != 0)
+		{
+			*EACycles += 4;
+		}
+	}
+}
+
+void
 UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented_access *At, memory *Memory)
 {
 	
 	// REGISTER STATES
-    // For now we have simple move instructions. When we imply 8 bit registers like dh or dl, we have to check the D flag.
+	// For now we have simple move instructions. When we imply 8 bit registers like dh or dl, we have to check the D flag.
 	
 	u32 Prev_Register_Flags = g_Register_Infos[register_index::Register_flags - 1];
 	
@@ -382,16 +419,17 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 	instruction_operand SourceOperand{};
 	s32 SourceValue = 0;
 	u32 InstructionCycles = 0;
+	u32 EACycles = 0;
 	
 	u32& Register_IP_Ref = g_Register_Infos[register_index::Register_ip - 1];
 	u32 InstructionSize = (At->SegmentOffset - Register_IP_Ref);
 	s32 IP_Offset_To_Add = InstructionSize;
 	
 	
-    for(u32 i = 0; i < ArrayCount(Instruction.Operands); ++i)
-    {
+	for(u32 i = 0; i < ArrayCount(Instruction.Operands); ++i)
+	{
 		
-        instruction_operand Operand = Instruction.Operands[i];
+		instruction_operand Operand = Instruction.Operands[i];
 		if(Operand.Type == operand_type::Operand_None)
 		{
 			continue;
@@ -489,6 +527,23 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 			{
 				// MOV
 				DestinationRegister = SourceValue;
+				
+				// Cycles
+				if(SourceOperand.Type == operand_type::Operand_Immediate)
+				{
+					InstructionCycles += 4;
+				}
+				else if(SourceOperand.Type == operand_type::Operand_Register)
+				{
+					InstructionCycles += 2;
+				}
+				else if(SourceOperand.Type == operand_type::Operand_Memory)
+				{
+					InstructionCycles += 8;
+					
+					AddEACycles(&EACycles, &SourceOperand);
+				}
+				
 			}
 			else if(Instruction.Op == operation_type::Op_add)
 			{
@@ -498,8 +553,10 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 				
 				// @ TODO Maybe a better way of meausuring this? I am taking advantage of the contidionals being met hre.
 				// so we do not have to check conditions for Operands and Instruction again, it would be cleaner, but ...
+				
+				
 				// Cycles
-				u32 PrevCycles = InstructionCycles;
+				
 				if(SourceOperand.Type == operand_type::Operand_Immediate)
 				{
 					InstructionCycles += 4;
@@ -511,45 +568,8 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 				else if(SourceOperand.Type == operand_type::Operand_Memory)
 				{
 					InstructionCycles += 9;
-					
-					if(SourceOperand.Address.Base == effective_address_base::EffectiveAddress_direct)
-					{
-						InstructionCycles += 6;
-					}
-					else if(SourceOperand.Address.Base >= effective_address_base::EffectiveAddress_si 
-							&& SourceOperand.Address.Base <= effective_address_base::EffectiveAddress_bx )
-					{
-						InstructionCycles += 5;
-						
-						if(SourceOperand.Address.Displacement != 0)
-						{
-							InstructionCycles += 4;
-						}
-					}
-					else if(SourceOperand.Address.Base == effective_address_base::EffectiveAddress_bp_di 
-							|| SourceOperand.Address.Base == effective_address_base::EffectiveAddress_bx_si)
-					{
-						InstructionCycles += 7;
-						if(SourceOperand.Address.Displacement != 0)
-						{
-							InstructionCycles += 4;
-						}
-					}
-					else if(SourceOperand.Address.Base == effective_address_base::EffectiveAddress_bp_si 
-							|| SourceOperand.Address.Base == effective_address_base::EffectiveAddress_bx_di)
-					{
-						InstructionCycles += 8;
-						if(SourceOperand.Address.Displacement != 0)
-						{
-							InstructionCycles += 4;
-						}
-					}
+					AddEACycles(&EACycles, &SourceOperand);
 				}
-				
-				printf(" [");
-				printf("Cycles: +%i  ", InstructionCycles);
-				
-				
 				
 			}
 			else if(Instruction.Op == operation_type::Op_sub)
@@ -565,6 +585,8 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 			u32 DestinationMemoryAddressBase = GetMemoryAddressBaseFromOperand(&DestinationOperand);
 			if(Instruction.Op == operation_type::Op_mov)
 			{
+				// MOV
+				
 				u8 LowBits = 0xFF & SourceValue;
 				WriteMemory(LowBits, 0/* Segment */, DestinationMemoryAddressBase, 0, Memory);
 				
@@ -574,8 +596,23 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 					u8 HighBits = 0xFF00 & SourceValue;
 					WriteMemory(HighBits, 0/* Segment */, DestinationMemoryAddressBase, 1, Memory);
 				}
+				
+				
+				
 			}
 		}
+		
+		
+		// CYCLES PRINTING
+		InstructionCycles += EACycles;
+		
+		printf(" -- [");
+		printf("Cycles: %+i ", InstructionCycles);
+		if(EACycles > 0)
+		{
+			printf(" EA: %+i", EACycles);
+		}
+		
 		
 		
 		// FLAGS  SETTING
@@ -635,7 +672,7 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 		// PRINT FLAGS CHANGE
 		if(Current_Register_Flags != Prev_Register_Flags)
 		{
-			std::printf(" Flags ");
+			std::printf("Flags ");
 			
 			// PREV FLAGS
 			for(u8 Flag_Index = 0; Flag_Index < register_flags_fields::Flag_Num; ++Flag_Index)
@@ -662,9 +699,9 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 				}
 				
 			}
-			printf("]");
 		}
 		
+		printf("]");
 		Context->CPUContext.TotalCycles += InstructionCycles;
 		
 	}
