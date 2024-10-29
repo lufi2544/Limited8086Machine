@@ -42,10 +42,10 @@ struct instruction_format
     instruction_bits Bits[16];
 };
 
-
 struct cpu_context
 {
 	u32 TotalCycles = 0;
+	bool b8086 = false;
 };
 
 struct disasm_context
