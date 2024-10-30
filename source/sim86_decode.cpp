@@ -370,7 +370,7 @@ GetMemoryAddressBaseFromOperand(instruction_operand *Operand)
 }
 
 void
-AddEACycles(disasm_context *Context, u32 *EACycles, instruction_operand *SourceOperand, u8 Transfers)
+AddEACycles(disasm_context *Context, bool bIsWideInstruction, u32 *EACycles, instruction_operand *SourceOperand, u8 Transfers, u8 *TransferExtraCycles)
 {
 	if(SourceOperand->Address.Base == effective_address_base::EffectiveAddress_direct)
 	{
@@ -421,13 +421,14 @@ AddEACycles(disasm_context *Context, u32 *EACycles, instruction_operand *SourceO
 	else
 	{
 		// in 8088 for every word operation we add the Transfers Cycles
-		bShouldAddTransferCycles = Context->AdditionalFlags & instruction_flag::Inst_Wide;
+		bShouldAddTransferCycles = bIsWideInstruction;
 	}
 	
 	// adding 4 cycles * Transfers
 	if(bShouldAddTransferCycles)
 	{
-		*EACycles += (4 * Transfers);
+        *TransferExtraCycles = (4 * Transfers);
+		*EACycles += (*(TransferExtraCycles));
 	}
 }
 
@@ -445,6 +446,7 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 	s32 SourceValue = 0;
 	u32 InstructionCycles = 0;
 	u32 EACycles = 0;
+    u8 TransferAddedCycles = 0; 
 	
 	u32& Register_IP_Ref = g_Register_Infos[register_index::Register_ip - 1];
 	u32 InstructionSize = (At->SegmentOffset - Register_IP_Ref);
@@ -568,7 +570,7 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 				{
 					InstructionCycles += 8;
 					
-					AddEACycles(&EACycles, &SourceOperand);
+					AddEACycles(Context, bIsWideInstruction,  &EACycles, &SourceOperand, 1, &TransferAddedCycles);
 				}
 				
 			}
@@ -595,7 +597,7 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 				else if(SourceOperand.Type == operand_type::Operand_Memory)
 				{
 					InstructionCycles += 9;
-					AddEACycles(Context, &EACycles, &SourceOperand, 1);
+					AddEACycles(Context, bIsWideInstruction, &EACycles, &SourceOperand, 1, &TransferAddedCycles);
 				}
 				
 			}
@@ -629,12 +631,12 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 				if(SourceOperand.Type == operand_type::Operand_Immediate)
 				{
 					InstructionCycles += 10;
-					AddEACycles(&EACycles, &SourceOperand);
+					AddEACycles(Context, bIsWideInstruction, &EACycles, &SourceOperand, 1, &TransferAddedCycles);
 				}
 				else if(SourceOperand.Type == operand_type::Operand_Register)
 				{
 					InstructionCycles += 9;
-					AddEACycles(&EACycles, &DestinationOperand);
+					AddEACycles(Context, bIsWideInstruction, &EACycles, &DestinationOperand, 1, &TransferAddedCycles);
 				}
 			}
 			else if(Instruction.Op == operation_type::Op_add)
@@ -663,12 +665,12 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 				if(SourceOperand.Type == operand_type::Operand_Immediate)
 				{
 					InstructionCycles += 17;
-					AddEACycles(&EACycles, &DestinationOperand);
+					AddEACycles(Context, bIsWideInstruction, &EACycles, &DestinationOperand, 2, &TransferAddedCycles);
 				}
 				else if(SourceOperand.Type == operand_type::Operand_Register)
 				{
 					InstructionCycles += 16;
-					AddEACycles(&EACycles, &DestinationOperand);
+					AddEACycles(Context, bIsWideInstruction, &EACycles, &DestinationOperand, 2, &TransferAddedCycles);
 				}
 				
 			}
@@ -684,6 +686,11 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 		{
 			printf(" EA: %+i", EACycles);
 		}
+        
+        if(TransferAddedCycles > 0)
+        {
+            printf(" T: %+i", TransferAddedCycles);
+        }
 		
 		
 		

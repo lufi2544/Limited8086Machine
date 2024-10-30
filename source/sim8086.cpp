@@ -22,6 +22,7 @@ void DisAsm8086(memory* Memory, u32 DisAsmByteCount, segmented_access DisAsmStar
 {
 	segmented_access At = DisAsmStart;
 	disasm_context Context = DefaultContext();
+    Context.CPUContext.b8086 = false;
 	u32 Count = DisAsmByteCount;
 	while(Count)
 	{
