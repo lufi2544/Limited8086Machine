@@ -2,6 +2,7 @@
 
 #include "sim86_memory.h"
 #include "sim8086.h"
+#include "sim86_text.h"
 #include <iostream>
 
 
@@ -287,26 +288,6 @@ IsNegative(const u32 Num)
 	return (1 << 15) & (Num & 0xFFFF);
 }
 
-const char*
-GetFlagRegisterName(u8 Flag)
-{
-	register_flags_fields Casted_Flag = register_flags_fields(Flag);
-	if(Casted_Flag == register_flags_fields::Flag_sign)
-	{
-		return "S";
-	}
-	else if(Casted_Flag == register_flags_fields::Flag_zero)
-	{
-		return "Z";
-	}
-	else if(Casted_Flag == register_flags_fields::Flag_parity)
-	{
-		return "P";
-	}
-	
-	return nullptr;
-}
-
 void
 UpdateContext(disasm_context *Context, instruction Instruction)
 {
@@ -347,7 +328,7 @@ GetMemoryAddressBaseFromOperand(instruction_operand *Operand)
 		{
 			// [bp + si]
 			u32 Bp_Si = GetRegisterValue(register_index::Register_bp) + GetRegisterValue(register_index::Register_si);
-			MemoryAddressBase = Bp_Si;
+			MemoryAddressBase += Bp_Si;
 		}
 		else if(Operand->Address.Base == effective_address_base::EffectiveAddress_si)
 		{
@@ -358,6 +339,21 @@ GetMemoryAddressBaseFromOperand(instruction_operand *Operand)
 		{
 			u32 Di = GetRegisterValue(register_index::Register_di);
 			MemoryAddressBase += Di;
+		}
+		else if(Operand->Address.Base == effective_address_base::EffectiveAddress_bp_di)
+		{
+			u32 Bp_Di = GetRegisterValue(register_index::Register_bp) + GetRegisterValue(register_index::Register_di);
+			MemoryAddressBase += Bp_Di;
+		}
+		else if(Operand->Address.Base == effective_address_base::EffectiveAddress_bx_si)
+		{
+			u32 Bx_Si = GetRegisterValue(register_index::Register_b) + GetRegisterValue(register_index::Register_si);
+			MemoryAddressBase += Bx_Si;
+		}
+		else if(Operand->Address.Base == effective_address_base::EffectiveAddress_bx_di)
+		{
+			u32 Bx_Di = GetRegisterValue(register_index::Register_b) + GetRegisterValue(register_index::Register_di);
+			MemoryAddressBase += Bx_Di;
 		}
 		else
 		{

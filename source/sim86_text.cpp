@@ -1,5 +1,6 @@
 ﻿#include "sim86_text.h"
 #include "sim86_decode.h"
+#include <iostream>
 
 
 char const *OpCodeMnemonics[] =
@@ -29,6 +30,46 @@ char const *Names[][3] =
     {"ip", "ip", "ip"},
     {"flags", "flags", "flags"}
 };
+
+const char*
+GetFlagRegisterName(u8 Flag)
+{
+	register_flags_fields Casted_Flag = register_flags_fields(Flag);
+	if(Casted_Flag == register_flags_fields::Flag_sign)
+	{
+		return "S";
+	}
+	else if(Casted_Flag == register_flags_fields::Flag_zero)
+	{
+		return "Z";
+	}
+	else if(Casted_Flag == register_flags_fields::Flag_parity)
+	{
+		return "P";
+	}
+	
+	return nullptr;
+}
+
+void
+PrintFlagsRegister()
+{
+	printf(" Flags: ");
+	u32 FlagsRegister = g_Register_Infos[register_index::Register_flags - 1];
+	for(u8 Flag_Index = 0; Flag_Index < register_flags_fields::Flag_Num; ++Flag_Index)
+	{
+		if(FlagsRegister & (1 << Flag_Index))
+		{
+			if(const char* FlagName = GetFlagRegisterName(Flag_Index))
+			{
+				std::printf("%s", FlagName);
+			}
+		}
+		
+	}
+	
+	printf("\n");
+}
 
 char const *GetMnemonic(operation_type Op)
 {
@@ -193,8 +234,7 @@ void PrintRegistersState(FILE* Dest)
         "ip"
     };
 	
-	printf( "\n");
-	printf("Register States: ");
+	printf(" Register States: ");
 	printf("\n");
     
     for(u32 i = 0; i< ArrayCount(g_Register_Infos); ++i)
@@ -207,5 +247,6 @@ void PrintRegistersState(FILE* Dest)
 			printf("\n");
 		}
     }
+	
 }
 

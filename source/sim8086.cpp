@@ -48,9 +48,6 @@ void DisAsm8086(memory* Memory, u32 DisAsmByteCount, segmented_access DisAsmStar
 			UpdateContext(&Context, Instruction);
 			UpdateRegisterValues(&Context, Instruction, &At, Memory);
 			
-			printf("\n");
-			
-			
 			s32 CountOffset = At.SegmentOffset - PreviousSegmentedAccessOffset;
 			if(CountOffset != 0)
 			{
@@ -65,22 +62,35 @@ void DisAsm8086(memory* Memory, u32 DisAsmByteCount, segmented_access DisAsmStar
 			fprintf(stderr, "ERROR: Unrecognized binary in instruction stream.\n");
 			break;
 		}
+		printf("\n");
+		PrintRegistersState(stdout);
+		printf(" Total Program Cycles: %i \n", Context.CPUContext.TotalCycles);
+		printf("\n");
+		
+		
 	}
     
-	PrintRegistersState(stdout);
-	printf(" Total Program Cycles: %i \n", Context.CPUContext.TotalCycles);
+	PrintFlagsRegister();
+	
 }
 
 int main (int ArgCount, char** Args)
 {
 	memory* Memory = (memory*)malloc(sizeof(memory));
 	
-    char* FileName = "listing_0056_estimating_cycles";
+    char* FileName = "listing_0057_challenge_cycles";
     
     // @BytesRead, number of bytes (Instruction + Additional Instruction flags)
     u32 BytesRead = LoadMemoryFromFile(FileName, Memory, 0);
     printf("; disassembly: %s \n", FileName);
     printf("bits 16\n");
+	
+	// Zeroed all memory
+	/*for(int a = BytesRead; a < sizeof(memory); ++a)
+	{
+		Memory->Bytes[a] = 0;
+	}*/
+	
     DisAsm8086(Memory, BytesRead, {});
 	
 	
