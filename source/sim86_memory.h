@@ -1,10 +1,13 @@
 ﻿#pragma once
 
 #include "sim8086_types.h"
+#include "stack.h"
+
 
 struct memory
 {
     u8 Bytes[1024 * 1024];
+	stack Stack;
 };
 
 #define MEMORY_ACCESS_MASK 0xfffff

@@ -61,6 +61,15 @@ INST(loopnz, {B(11100000), DISP, Flags(Bits_RelJMPDisp)}) // Loop on Zero flag n
 INST(loop, {B(11100010), DISP, Flags(Bits_RelJMPDisp)}) // Decrements CX by 1 and jumps if CX != 0
 
 
+INST(push, {B(11111111), MOD, B(110), RM, DATA})
+INSTALT(push, {B(01010), REG})
+INSTALT(push, {B(000), REG, B(110)})
+
+
+INST(pop, {B(10001111), MOD, B(000), RM, DATA})
+INSTALT(pop, {B(01011), REG})
+INSTALT(pop, {B(000), REG, B(111)})
+
 INST(cmps, { B(1010011), W })
 
 #undef INST

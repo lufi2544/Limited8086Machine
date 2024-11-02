@@ -76,7 +76,7 @@ void DisAsm8086(memory* Memory, u32 DisAsmByteCount, segmented_access DisAsmStar
 
 int main (int ArgCount, char** Args)
 {
-	memory* Memory = (memory*)malloc(sizeof(memory));
+	memory* Memory = (memory*)malloc(sizeof(memory) - sizeof(stack));
 	
     char* FileName = "listing_0057_challenge_cycles";
     
@@ -84,12 +84,6 @@ int main (int ArgCount, char** Args)
     u32 BytesRead = LoadMemoryFromFile(FileName, Memory, 0);
     printf("; disassembly: %s \n", FileName);
     printf("bits 16\n");
-	
-	// Zeroed all memory
-	/*for(int a = BytesRead; a < sizeof(memory); ++a)
-	{
-		Memory->Bytes[a] = 0;
-	}*/
 	
     DisAsm8086(Memory, BytesRead, {});
 	
