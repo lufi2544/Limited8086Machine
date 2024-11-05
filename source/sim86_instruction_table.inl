@@ -70,7 +70,13 @@ INST(pop, {B(10001111), MOD, B(000), RM, DATA})
 INSTALT(pop, {B(01011), REG})
 INSTALT(pop, {B(000), REG, B(111)})
 
-INST(cmps, { B(1010011), W })
+INST(call, {B(11101000), DATA})
+INSTALT(call, {B(10011010), DATA, DATA_IF_W})
+
+INST(ret, {B(11000011)})
+INSTALT(ret, {B(11000010), DATA}) // Stack adjustment with return. mov ip, [sp] and then sub sp, x for restoring space from local variables. 
+
+INST(cmps, {B(1010011), W })
 
 #undef INST
 #undef INSTALT

@@ -11,6 +11,8 @@ struct memory
 };
 
 #define MEMORY_ACCESS_MASK 0xfffff
+#define STACK_SIZE_86 0xff // 256 bytes
+#define STACK_SEGMENT_OFFSET 0xfff0 // segment that lets 256 bytes of stack
 
 struct segmented_access
 {

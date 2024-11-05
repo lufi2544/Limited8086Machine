@@ -493,6 +493,26 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 			// cx -= 1 loop if != 0
 			bPerformJump = (--GetRegisterValue(register_index::Register_c)) != 0;
 		}
+        else if(Instruction.Op == operation_type::Op_call)
+        {
+            // CALL INSTRUCTION (Direct)
+            
+            // Saves the IP to the Stack Memory and then adds the offset to the IP.
+            Memory->Stack.Push(register_index::Register_ip);
+            bPerformJump = true;
+        }
+        else if(Instruction.Op == operation_type::Op_ret)
+        {
+            //RETURN INSTRUCTION
+            
+            // Restores the IP register from the Stack Memory
+            // pop ip -> mov ip, [sp]; sub sp, 2
+            // 
+            
+            Memory->Stack.Pop(register_index::Register_ip);
+            Operand.ImmediateS32 = GetRegisterValue(register_index::Register_ip);
+            bPerformJump = true;
+        }
 		
 		// Perfoming Jump if any jump condition is met.
 		if(bPerformJump)
@@ -501,6 +521,8 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 			IP_Offset_To_Add = Operand.ImmediateS32;
 			continue;
 		}
+        
+        
 		
 		/////////////
 		

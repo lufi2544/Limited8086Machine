@@ -49,6 +49,9 @@ void DisAsm8086(memory* Memory, u32 DisAsmByteCount, segmented_access DisAsmStar
 			UpdateRegisterValues(&Context, Instruction, &At, Memory);
 			
 			s32 CountOffset = At.SegmentOffset - PreviousSegmentedAccessOffset;
+            
+            // Inverting the sign of the result as if we have to go lower with the IP, means that the CountOffset should be higher and same
+            // with negative numbers.
 			if(CountOffset != 0)
 			{
 				CountOffset = ~CountOffset + 1;
@@ -85,6 +88,13 @@ int main (int ArgCount, char** Args)
     printf("; disassembly: %s \n", FileName);
     printf("bits 16\n");
 	
+    
+    // Set up the Stack
+    u32& StackSegment =  GetRegisterValue(register_index::Register_ss);
+    StackSegment = STACK_SEGMENT_OFFSET;
+    u32& StackPointer = GetRegisterValue(register_index::Register_sp);
+    StackPointer = STACK_SIZE_86;
+    
     DisAsm8086(Memory, BytesRead, {});
 	
 	
