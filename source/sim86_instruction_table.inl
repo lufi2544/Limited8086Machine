@@ -39,7 +39,7 @@ INSTALT(mov, {B(1100011), W, MOD, B(000), RM, DATA, DATA_IF_W, ImpD(0)})
 INSTALT(mov, {B(1011), W, REG, DATA, DATA_IF_W, ImpD(1)})
 INSTALT(mov, {B(1010000), W, ADDR, ImpREG(0), ImpMOD(0), ImpRM(0b110), ImpD(1)})
 INSTALT(mov, {B(1010001), W, ADDR, ImpREG(0), ImpMOD(0), ImpRM(0b110), ImpD(0)})
-INSTALT(mov, {B(100011), D, B(0), MOD, B(0), SR, RM}) // NOTE(casey): This collapses 2 entries in the 8086 table by adding an explicit D bit
+INSTALT(mov, {B(100011), D, B(0), MOD, B(0), SR, RM, ImpW(1)}) // NOTE(casey): This collapses 2 entries in the 8086 table by adding an explicit D bit
 
 INST(add, {B(000000), D, W, MOD, REG, RM}) // Reg/memory and register to either
 INSTALT(add, {B(100000),S, W, MOD, B(000), RM, DATA, DATA_IF_W}) // Immediate from register/memory
@@ -61,20 +61,19 @@ INST(loopnz, {B(11100000), DISP, Flags(Bits_RelJMPDisp)}) // Loop on Zero flag n
 INST(loop, {B(11100010), DISP, Flags(Bits_RelJMPDisp)}) // Decrements CX by 1 and jumps if CX != 0
 
 
-INST(push, {B(11111111), MOD, B(110), RM, DATA})
-INSTALT(push, {B(01010), REG})
-INSTALT(push, {B(000), REG, B(110)})
+INST(push, {B(11111111), MOD, B(110), RM, ImpW(1), ImpD(1)})
+INSTALT(push, {B(01010), REG, ImpW(1), ImpD(1)})
+INSTALT(push, {B(000), REG, B(110), ImpW(1), ImpD(1)})
 
 
-INST(pop, {B(10001111), MOD, B(000), RM, DATA})
-INSTALT(pop, {B(01011), REG})
-INSTALT(pop, {B(000), REG, B(111)})
+INST(pop, {B(10001111), MOD, B(000), RM, ImpW(1), ImpD(1)})
+INSTALT(pop, {B(01011), REG, ImpW(1), ImpD(1)})
+INSTALT(pop, {B(000), SR, B(111), ImpW(1), ImpD(1)})
 
-INST(call, {B(11101000), DATA})
-INSTALT(call, {B(10011010), DATA, DATA_IF_W})
+INST(call, {B(11101000), ADDR, Flags(Bits_RelJMPDisp)})
 
 INST(ret, {B(11000011)})
-INSTALT(ret, {B(11000010), DATA}) // Stack adjustment with return. mov ip, [sp] and then sub sp, x for restoring space from local variables. 
+INSTALT(ret, {B(11000010), DATA, DATA_IF_W, ImpW(1)}) // Stack adjustment with return. mov ip, [sp] and then sub sp, x for restoring space from local variables. 
 
 INST(cmps, {B(1010011), W })
 

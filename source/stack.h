@@ -44,7 +44,7 @@ struct stack
 	memory* Memory = nullptr;
 	
 	void Push(register_index Register);
-	void Pop(register_index Register, u8 Num = 1);
+    u32 Pop(register_index Register, u8 Num = 0);
 };
 
 

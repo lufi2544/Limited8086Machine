@@ -64,6 +64,11 @@ static instruction_operand GetRegOperand(u32 IntelRegIndex, b32 Wide)
     instruction_operand Result = {};
     Result.Type = Operand_Register;
     Result.Register = RegTable[IntelRegIndex & 0x7/*(0b00000111)*/][(Wide != 0)];
+    
+    if(Result.Register.Index == register_index::Register_bp)
+    {
+        Result.Address.Segment = Register_ss;
+    }
 	
     return Result;
 }
@@ -169,10 +174,7 @@ TryDecode(disasm_context *Context, instruction_format *Inst, memory *Memory, seg
         Dest.Address = StartingAddress;
         auto currentAddress = GetMemoryAddress_8086(At);
         Dest.Size = GetMemoryAddress_8086(At) - StartingAddress;
-        if(W)
-        {
-            Dest.Flags |= Inst_Wide;
-        }
+        
 		
         u32 Disp = Bits[Bits_Disp];
         s16 Displacement = (s16)Disp;
@@ -186,6 +188,11 @@ TryDecode(disasm_context *Context, instruction_format *Inst, memory *Memory, seg
             RegOperand->Register.Index = (register_index)(Register_es + (Bits[Bits_SR] & 0x3));
             RegOperand->Register.WidenessID = 2;
         }
+        
+        if(W)
+        {
+            Dest.Flags |= Inst_Wide;
+        }
 		
         if(HasBits & (1 << Bits_REG))
         {
@@ -196,12 +203,13 @@ TryDecode(disasm_context *Context, instruction_format *Inst, memory *Memory, seg
         {
             if(Mod == 0b11)
             {
+                // Register
                 *ModOperand = GetRegOperand(RM, W || (Bits[Bits_RMRegAlwaysW]));
             }
             else
             {
+                // Memory
                 ModOperand->Type = Operand_Memory;
-                ModOperand->Address.Segment = Context->DefaultSegment;
                 ModOperand->Address.Displacement = Displacement;
 				
                 if((Mod == 0b00) && (RM == 0b110))
@@ -211,6 +219,13 @@ TryDecode(disasm_context *Context, instruction_format *Inst, memory *Memory, seg
                 else
                 {
                     ModOperand->Address.Base = (effective_address_base)(1+RM);
+                }
+                
+                effective_address_base EffectiveAddress = ModOperand->Address.Base;
+                if((EffectiveAddress == effective_address_base::EffectiveAddress_bp_si) || (EffectiveAddress == effective_address_base::EffectiveAddress_bp_di) || (EffectiveAddress == effective_address_base::EffectiveAddress_bp))
+                {
+                    
+                    ModOperand->Address.Segment = register_index::Register_ss;
                 }
             }
         }
@@ -509,9 +524,18 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
             // pop ip -> mov ip, [sp]; sub sp, 2
             // 
             
-            Memory->Stack.Pop(register_index::Register_ip);
-            Operand.ImmediateS32 = GetRegisterValue(register_index::Register_ip);
+            u32 Old_IP = GetRegisterValue(register_index::Register_ip);
+            u32 Restored_IP =  Memory->Stack.Pop(register_index::Register_ip);
+            Operand.ImmediateS32 = Old_IP - Restored_IP;
             bPerformJump = true;
+        }
+        else if(Instruction.Op == operation_type::Op_push)
+        {
+            Memory->Stack.Push(Operand.Register.Index);
+        }
+        else if(Instruction.Op == operation_type::Op_pop)
+        {
+            Memory->Stack.Pop(Operand.Register.Index);
         }
 		
 		// Perfoming Jump if any jump condition is met.

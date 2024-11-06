@@ -22,7 +22,7 @@ void DisAsm8086(memory* Memory, u32 DisAsmByteCount, segmented_access DisAsmStar
 {
 	segmented_access At = DisAsmStart;
 	disasm_context Context = DefaultContext();
-    Context.CPUContext.b8086 = false;
+    Context.CPUContext.b8086 = true;
 	u32 Count = DisAsmByteCount;
 	while(Count)
 	{
@@ -65,10 +65,13 @@ void DisAsm8086(memory* Memory, u32 DisAsmByteCount, segmented_access DisAsmStar
 			fprintf(stderr, "ERROR: Unrecognized binary in instruction stream.\n");
 			break;
 		}
+        /*
 		printf("\n");
 		PrintRegistersState(stdout);
 		printf(" Total Program Cycles: %i \n", Context.CPUContext.TotalCycles);
+*/
 		printf("\n");
+        
 		
 		
 	}
@@ -81,7 +84,7 @@ int main (int ArgCount, char** Args)
 {
 	memory* Memory = (memory*)malloc(sizeof(memory) - sizeof(stack));
 	
-    char* FileName = "listing_0057_challenge_cycles";
+    char* FileName = "StackTest";
     
     // @BytesRead, number of bytes (Instruction + Additional Instruction flags)
     u32 BytesRead = LoadMemoryFromFile(FileName, Memory, 0);
@@ -90,10 +93,11 @@ int main (int ArgCount, char** Args)
 	
     
     // Set up the Stack
-    u32& StackSegment =  GetRegisterValue(register_index::Register_ss);
+    /*u32& StackSegment =  GetRegisterValue(register_index::Register_ss);
     StackSegment = STACK_SEGMENT_OFFSET;
     u32& StackPointer = GetRegisterValue(register_index::Register_sp);
-    StackPointer = STACK_SIZE_86;
+    StackPointer = STACK_SIZE_86;*/
+    Memory->Stack.Memory = Memory;
     
     DisAsm8086(Memory, BytesRead, {});
 	

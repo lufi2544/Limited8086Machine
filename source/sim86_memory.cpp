@@ -25,13 +25,13 @@ u32 LoadMemoryFromFile(char* FileName, memory* Memory, u32 AtOffset)
 	return Result;
 }
 
-u32 GetMemoryAddress_8086(u16 SegmentBase, u16 SegmentOffset, u16 AdditionalOffset)
+u32 GetMemoryAddress_8086(u16 SegmentBase, u16 SegmentOffset, s16 AdditionalOffset)
 {
     u32 Result = (((u32)SegmentBase << 4) + (u32)(SegmentOffset + AdditionalOffset)) & MEMORY_ACCESS_MASK;
     return Result;
 }
 
-u32 GetMemoryAddress_8086(segmented_access Access, u16 AdditionalOffset)
+u32 GetMemoryAddress_8086(segmented_access Access, s16 AdditionalOffset)
 {
     u32 Result = GetMemoryAddress_8086(Access.SegmentBase, Access.SegmentOffset, AdditionalOffset);
     return Result;
@@ -46,7 +46,7 @@ u8 ReadMemory(memory *Memory, u32 AbsoluteAddress)
 }
 
 void
-WriteMemory(u8 Value, u16 SegmentBase, u16 SegmentOffset, u16 AdditionalOffset, memory *Memory)
+WriteMemory(u8 Value, u16 SegmentBase, u16 SegmentOffset, s16 AdditionalOffset, memory *Memory)
 {
 	u32 MemoryAddress = GetMemoryAddress_8086(SegmentBase, SegmentOffset, AdditionalOffset);
 	Memory->Bytes[MemoryAddress] = Value;
@@ -54,7 +54,7 @@ WriteMemory(u8 Value, u16 SegmentBase, u16 SegmentOffset, u16 AdditionalOffset, 
 
 
 u8 
-ReadMemory(memory *Memory, u16 SegmentBase, u16 SegmentOffset, u16 AdditionalOffset)
+ReadMemory(memory *Memory, u16 SegmentBase, u16 SegmentOffset, s16 AdditionalOffset)
 {
 	u32 MemoryAddress = GetMemoryAddress_8086(SegmentBase, SegmentOffset, AdditionalOffset);
 	return Memory->Bytes[MemoryAddress];
