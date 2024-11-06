@@ -39,6 +39,14 @@ void DisAsm8086(memory* Memory, u32 DisAsmByteCount, segmented_access DisAsmStar
 				break;
 			}
             
+            // TODO FIND A BETTER WAY OF DOING THIS FOR RET
+            if(Context.bJumpInstruction)
+            {
+                Count += Instruction.Size;
+                Context.bJumpInstruction = false;
+                continue;
+            }
+            
 			if(IsPrintable(Instruction))
 			{
 				PrintInstruction(Instruction, stdout);

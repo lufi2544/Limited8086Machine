@@ -53,6 +53,7 @@ struct disasm_context
     u32 AdditionalFlags;
     register_index DefaultSegment;
 	cpu_context CPUContext;
+    bool bJumpInstruction = false;
 };
 
 disasm_context

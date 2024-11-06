@@ -304,6 +304,7 @@ UpdateContext(disasm_context *Context, instruction Instruction)
 {
     Context->AdditionalFlags = 0;
     Context->DefaultSegment = Register_ds;
+    Context->bJumpInstruction = false;
 }
 
 
@@ -522,7 +523,17 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
             
             u32 Old_IP = GetRegisterValue(register_index::Register_ip);
             u32 Restored_IP =  Memory->Stack.Pop(register_index::Register_ip);
-            Operand.ImmediateS32 = Old_IP - Restored_IP;
+            
+            // Restore Space that was added to the Stack.( function parameters )
+            if(Operand.ImmediateS32 > 0)
+            {
+                u32& StackPointer = GetRegisterValue(register_index::Register_sp);
+                StackPointer += Operand.ImmediateS32;
+            }
+            
+            Context->bJumpInstruction = true;
+            
+            Operand.ImmediateS32 = Restored_IP - Old_IP;
             bPerformJump = true;
         }
         else if(Instruction.Op == operation_type::Op_push)
