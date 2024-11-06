@@ -65,11 +65,11 @@ void DisAsm8086(memory* Memory, u32 DisAsmByteCount, segmented_access DisAsmStar
 			fprintf(stderr, "ERROR: Unrecognized binary in instruction stream.\n");
 			break;
 		}
-        /*
+        
 		printf("\n");
 		PrintRegistersState(stdout);
 		printf(" Total Program Cycles: %i \n", Context.CPUContext.TotalCycles);
-*/
+        
 		printf("\n");
         
 		

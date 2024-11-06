@@ -30,6 +30,16 @@ SP - Register that stores the value of the current stack ptr.
 BP - Base pointer of the Procedure, used for refereing to local variables.
 IP - Program Instruction pointer, used for jumping between procedures.
 
+
+For storing data in the Stack Segmenet Addresses, I am going to store the data from HighBits to Low, as the Stack grows downwards
+
+E.g:
+-> SP - 255, if we push AX(10), the 10 value bits will be in the 253 and the 0 bit value will be in the 254. 
+@see Push and Pop
+
+   
+  
+
 */
 #ifndef STACK_H
 #define STACK_H

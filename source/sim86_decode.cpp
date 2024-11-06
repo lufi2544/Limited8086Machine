@@ -64,11 +64,6 @@ static instruction_operand GetRegOperand(u32 IntelRegIndex, b32 Wide)
     instruction_operand Result = {};
     Result.Type = Operand_Register;
     Result.Register = RegTable[IntelRegIndex & 0x7/*(0b00000111)*/][(Wide != 0)];
-    
-    if(Result.Register.Index == register_index::Register_bp)
-    {
-        Result.Address.Segment = Register_ss;
-    }
 	
     return Result;
 }
@@ -222,6 +217,7 @@ TryDecode(disasm_context *Context, instruction_format *Inst, memory *Memory, seg
                 }
                 
                 effective_address_base EffectiveAddress = ModOperand->Address.Base;
+                
                 if((EffectiveAddress == effective_address_base::EffectiveAddress_bp_si) || (EffectiveAddress == effective_address_base::EffectiveAddress_bp_di) || (EffectiveAddress == effective_address_base::EffectiveAddress_bp))
                 {
                     
