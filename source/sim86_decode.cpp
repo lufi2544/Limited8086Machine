@@ -441,6 +441,19 @@ AddEACycles(disasm_context *Context, bool bIsWideInstruction, u32 *EACycles, ins
 }
 
 void
+AdjustAccessedSegmentInMemoryAccess(instruction_operand *Operand)
+{
+    effective_address_base EffectiveAddress = Operand->Address.Base;
+    if((EffectiveAddress == effective_address_base::EffectiveAddress_bp_si) ||
+       (EffectiveAddress == effective_address_base::EffectiveAddress_bp_di) || 
+       (EffectiveAddress == effective_address_base::EffectiveAddress_bp))
+    {
+        
+        Operand->Address.Segment = register_index::Register_ss;
+    }
+}
+
+void
 UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented_access *At, memory *Memory)
 {
 	
@@ -664,16 +677,17 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 			u32 DestinationMemoryAddressBase = GetMemoryAddressBaseFromOperand(&DestinationOperand);
 			if(Instruction.Op == operation_type::Op_mov)
 			{
-				// MOV
+				
+                // MOV
 				
 				u8 LowBits = 0xFF & SourceValue;
-				WriteMemory(LowBits, 0/* Segment 0 by Default */, DestinationMemoryAddressBase, 0, Memory);
+				WriteMemory(LowBits, GetRegisterValue(DestinationOperand.Address.Segment), DestinationMemoryAddressBase, 0, Memory);
 				
 				// Operating a wide instruction
 				if(Instruction.Flags & Inst_Wide)
 				{
 					u8 HighBits = 0xFF00 & SourceValue;
-					WriteMemory(HighBits, 0/* Segment */, DestinationMemoryAddressBase, 1, Memory);
+					WriteMemory(HighBits, GetRegisterValue(DestinationOperand.Address.Segment), DestinationMemoryAddressBase, 1, Memory);
 				}
 				
 				// Cycles
