@@ -99,17 +99,8 @@ int main (int ArgCount, char** Args)
     printf("; disassembly: %s \n", FileName);
     printf("bits 16\n");
 	
-    
-    // Set up the Stack
-    /*u32& StackSegment =  GetRegisterValue(register_index::Register_ss);
-    StackSegment = STACK_SEGMENT_OFFSET;
-    u32& StackPointer = GetRegisterValue(register_index::Register_sp);
-    StackPointer = STACK_SIZE_86;*/
     Memory->Stack.Memory = Memory;
-    
     DisAsm8086(Memory, BytesRead, {});
-	
-	
 	
 	/*
 	// Dumping memory to a file for reading externaly

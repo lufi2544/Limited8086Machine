@@ -76,6 +76,6 @@ UpdateFlagsRegister(instruction Instruction);
 instruction DecodeInstruction(disasm_context *Context, memory *Memory, segmented_access *At);
 instruction TryDecode(disasm_context *Context, instruction_format *Inst, memory *Memory, segmented_access At);
 
-u32&
+u16&
 GetRegisterValue(register_index RegisterIndex);
 

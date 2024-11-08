@@ -55,7 +55,7 @@ void
 PrintFlagsRegister()
 {
 	printf(" Flags: ");
-	u32 FlagsRegister = g_Register_Infos[register_index::Register_flags - 1];
+	u16 FlagsRegister = g_Registers.flags;
 	for(u8 Flag_Index = 0; Flag_Index < register_flags_fields::Flag_Num; ++Flag_Index)
 	{
 		if(FlagsRegister & (1 << Flag_Index))
@@ -237,10 +237,11 @@ void PrintRegistersState(FILE* Dest)
 	printf(" Register States: ");
 	printf("\n");
     
-    for(u32 i = 0; i< ArrayCount(g_Register_Infos); ++i)
+    auto f = ArrayCount(g_Registers.u16);
+    for(u32 i = 1; i < ArrayCount(g_Registers.u16) - 1; ++i)
     {
-        const char* RegisterName = Registers[i];
-		s32 RegisterValue = TwosComplementToSigned(g_Register_Infos[i]);
+        const char* RegisterName = Registers[i - 1];
+		s32 RegisterValue = TwosComplementToSigned(g_Registers.u16[i]);
 		if(RegisterValue != 0)
 		{
 			fprintf(Dest, "      %s: %i", RegisterName, RegisterValue);

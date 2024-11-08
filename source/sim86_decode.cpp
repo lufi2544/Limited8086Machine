@@ -314,10 +314,10 @@ void PerformInstructionJump(segmented_access *At, u32 InstructionSize, s32 JumpO
 	At->SegmentOffset -= InstructionSize;
 }
 
-u32&
+u16&
 GetRegisterValue(register_index RegisterIndex)
 {
-	return g_Register_Infos[RegisterIndex -1];
+	return g_Registers.u16[RegisterIndex];
 }
 
 u32 
@@ -339,32 +339,32 @@ GetMemoryAddressBaseFromOperand(instruction_operand *Operand)
 		else if(Operand->Address.Base == effective_address_base::EffectiveAddress_bp_si)
 		{
 			// [bp + si]
-			u32 Bp_Si = GetRegisterValue(register_index::Register_bp) + GetRegisterValue(register_index::Register_si);
+			u16 Bp_Si = GetRegisterValue(register_index::Register_bp) + GetRegisterValue(register_index::Register_si);
 			MemoryAddressBase += Bp_Si;
 		}
 		else if(Operand->Address.Base == effective_address_base::EffectiveAddress_si)
 		{
-			u32 Si = GetRegisterValue(register_index::Register_si);
+			u16 Si = GetRegisterValue(register_index::Register_si);
 			MemoryAddressBase += Si;
 		}
 		else if(Operand->Address.Base == effective_address_base::EffectiveAddress_di)
 		{
-			u32 Di = GetRegisterValue(register_index::Register_di);
+			u16 Di = GetRegisterValue(register_index::Register_di);
 			MemoryAddressBase += Di;
 		}
 		else if(Operand->Address.Base == effective_address_base::EffectiveAddress_bp_di)
 		{
-			u32 Bp_Di = GetRegisterValue(register_index::Register_bp) + GetRegisterValue(register_index::Register_di);
+			u16 Bp_Di = GetRegisterValue(register_index::Register_bp) + GetRegisterValue(register_index::Register_di);
 			MemoryAddressBase += Bp_Di;
 		}
 		else if(Operand->Address.Base == effective_address_base::EffectiveAddress_bx_si)
 		{
-			u32 Bx_Si = GetRegisterValue(register_index::Register_b) + GetRegisterValue(register_index::Register_si);
+			u16 Bx_Si = GetRegisterValue(register_index::Register_b) + GetRegisterValue(register_index::Register_si);
 			MemoryAddressBase += Bx_Si;
 		}
 		else if(Operand->Address.Base == effective_address_base::EffectiveAddress_bx_di)
 		{
-			u32 Bx_Di = GetRegisterValue(register_index::Register_b) + GetRegisterValue(register_index::Register_di);
+			u16 Bx_Di = GetRegisterValue(register_index::Register_b) + GetRegisterValue(register_index::Register_di);
 			MemoryAddressBase += Bx_Di;
 		}
 		else
@@ -460,7 +460,7 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 	// REGISTER STATES
 	// For now we have simple move instructions. When we imply 8 bit registers like dh or dl, we have to check the D flag.
 	
-	u32 Prev_Register_Flags = g_Register_Infos[register_index::Register_flags - 1];
+	u16 Prev_Register_Flags = g_Registers.flags;
 	
 	instruction_operand DestinationOperand{};
 	instruction_operand SourceOperand{};
@@ -469,7 +469,7 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 	u32 EACycles = 0;
     u8 TransferAddedCycles = 0; 
 	
-	u32& Register_IP_Ref = g_Register_Infos[register_index::Register_ip - 1];
+	u16& Register_IP_Ref = g_Registers.ip;
 	u32 InstructionSize = (At->SegmentOffset - Register_IP_Ref);
 	s32 IP_Offset_To_Add = InstructionSize;
 	
@@ -534,13 +534,13 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
             // pop ip -> mov ip, [sp]; sub sp, 2
             // 
             
-            u32 Old_IP = GetRegisterValue(register_index::Register_ip);
+            u16 Old_IP = GetRegisterValue(register_index::Register_ip);
             u32 Restored_IP =  Memory->Stack.Pop(register_index::Register_ip);
             
             // Restore Space that was added to the Stack.( function parameters )
             if(Operand.ImmediateS32 > 0)
             {
-                u32& StackPointer = GetRegisterValue(register_index::Register_sp);
+                u16& StackPointer = GetRegisterValue(register_index::Register_sp);
                 StackPointer += Operand.ImmediateS32;
             }
             
@@ -613,7 +613,7 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 		{
 			// OPERATE ON A REGISTER
 			
-			u32& DestinationRegister = GetRegisterValue(DestinationOperand.Register.Index);
+			u16& DestinationRegister = GetRegisterValue(DestinationOperand.Register.Index);
 			if(Instruction.Op == operation_type::Op_mov)
 			{
 				// MOV
@@ -758,11 +758,11 @@ UpdateRegisterValues(disasm_context *Context, instruction Instruction, segmented
 		
 		
 		// FLAGS  SETTING
-		u32& Current_Register_Flags = GetRegisterValue(register_index::Register_flags);
+		u16& Current_Register_Flags = GetRegisterValue(register_index::Register_flags);
 		if(Instruction.Op != operation_type::Op_mov)
 		{
 			
-			u32 DestinationRegisterFinalValue = GetRegisterValue(DestinationOperand.Register.Index);
+			u16 DestinationRegisterFinalValue = GetRegisterValue(DestinationOperand.Register.Index);
 			u32 ValueToEvaluate = DestinationRegisterFinalValue;
 			
 			if(Instruction.Op == operation_type::Op_cmp)

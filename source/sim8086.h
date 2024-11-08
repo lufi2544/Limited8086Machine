@@ -110,7 +110,39 @@ struct instruction_operand
     };
 };
 
-inline u32 g_Register_Infos[0xD]{ };
+union registers_8086
+{
+#define REG_16(i) union {struct{u8 i##l; u8 i##h;}; u16 i##x;}
+    
+    struct 
+    {
+        u16 Zero;
+        
+        REG_16(a);
+        REG_16(b);
+        REG_16(c);
+        REG_16(d);
+        u16 sp;
+        u16 bp;
+        u16 si;
+        u16 di;
+        u16 es;
+        u16 cs;
+        u16 ss;
+        u16 ds;
+        u16 ip;
+        u16 flags;
+    };
+    
+    u8 u8[Register_count][2];
+    u16 u16[Register_count];
+    
+#undef REG_16
+};
+
+static_assert((sizeof(registers_8086)/sizeof(u16)) == Register_count, "Mismathed register sizes");
+
+inline registers_8086 g_Registers{};
 
 struct instruction
 {

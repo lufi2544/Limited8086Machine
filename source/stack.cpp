@@ -5,9 +5,9 @@
 
 void stack::Push(register_index Register)
 {
-	u32 RegisterToPush = GetRegisterValue(Register);
-	u32 StackSegment = GetRegisterValue(register_index::Register_ss);
-	u32& StackRegisterValue = GetRegisterValue(register_index::Register_sp);
+	u16 RegisterToPush = GetRegisterValue(Register);
+	u16 StackSegment = GetRegisterValue(register_index::Register_ss);
+	u16& StackRegisterValue = GetRegisterValue(register_index::Register_sp);
 	
 	// Writing low bits and high bits in stack memory
 	WriteMemory(RegisterToPush & 0xFF, StackSegment, StackRegisterValue, -2, Memory);
@@ -21,9 +21,9 @@ void stack::Push(register_index Register)
 
 u32 stack::Pop(register_index Register, u8 Num/* = 1*/)
 {
-	u32& RegisterToPop = GetRegisterValue(Register);
-	u32 StackSegment = GetRegisterValue(register_index::Register_ss);
-	u32& StackRegisterValue = GetRegisterValue(register_index::Register_sp);
+	u16& RegisterToPop = GetRegisterValue(Register);
+	u16 StackSegment = GetRegisterValue(register_index::Register_ss);
+	u16& StackRegisterValue = GetRegisterValue(register_index::Register_sp);
 	
 	u8 LowBits = ReadMemory(Memory, StackSegment, StackRegisterValue, 0);
 	u16 HighBits = ReadMemory(Memory, StackSegment, StackRegisterValue, 1);
